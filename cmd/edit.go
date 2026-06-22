@@ -27,46 +27,51 @@ var editCmd = &cobra.Command{
 			if isHelmChart(".") {
 				targetDir = "."
 			} else {
-				// Scan ~/kgen/
+				// Scan ~/kgen/ for chart directories
+				var charts []string
 				homeDir, err := os.UserHomeDir()
 				if err == nil {
 					kgenDir := filepath.Join(homeDir, "kgen")
 					entries, err := os.ReadDir(kgenDir)
 					if err == nil {
-						var charts []string
 						for _, entry := range entries {
 							if entry.IsDir() && isHelmChart(filepath.Join(kgenDir, entry.Name())) {
 								charts = append(charts, entry.Name())
 							}
 						}
-
-						if len(charts) == 1 {
-							targetDir = filepath.Join(kgenDir, charts[0])
-						} else if len(charts) > 1 {
-							// Let user select chart
-							fmt.Println(tui.HeaderStyle.Render("Select a generated Helm Chart to edit:"))
-							for i, c := range charts {
-								fmt.Printf("  [%d] %s (%s)\n", i+1, c, filepath.Join(kgenDir, c))
-							}
-							fmt.Print("\nEnter number: ")
-							var choice int
-							_, err := fmt.Scanf("%d", &choice)
-							if err == nil && choice >= 1 && choice <= len(charts) {
-								targetDir = filepath.Join(kgenDir, charts[choice-1])
-							} else {
-								fmt.Println("Invalid selection.")
-								os.Exit(1)
-							}
-						}
 					}
 				}
-			}
-		}
 
-		if targetDir == "" {
-			fmt.Println("Error: Please specify a valid Helm chart directory to edit.")
-			fmt.Println("Usage: kgen edit [chart-directory]")
-			os.Exit(1)
+				switch len(charts) {
+				case 0:
+					fmt.Println("Error: No generated Helm charts found.")
+					fmt.Println("Run 'kgen create' first to generate a chart, or specify a chart directory:")
+					fmt.Println("  kgen edit [chart-directory]")
+					os.Exit(1)
+
+				case 1:
+					// Only one chart — auto-select it
+					homeDir, _ := os.UserHomeDir()
+					targetDir = filepath.Join(homeDir, "kgen", charts[0])
+
+				default:
+					// Multiple charts — let user pick via interactive TUI
+					homeDir, _ := os.UserHomeDir()
+					listModel := tui.InitialChartListModel(charts)
+					listProg := tea.NewProgram(&listModel)
+					mRes, err := listProg.Run()
+					if err != nil {
+						printErr("Error running chart selector: %v", err)
+						os.Exit(1)
+					}
+					resModel, ok := mRes.(*tui.ChartListModel)
+					if !ok || resModel.Quitted || resModel.SelectedChart == "" {
+						// User cancelled
+						return
+					}
+					targetDir = filepath.Join(homeDir, "kgen", resModel.SelectedChart)
+				}
+			}
 		}
 
 		// Verify targetDir is a Helm chart
