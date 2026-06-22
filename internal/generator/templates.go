@@ -91,6 +91,13 @@ configMap:
     LOG_LEVEL: "info"
 {{- end }}
 
+{{- if .GenerateSecret }}
+secret:
+  enabled: true
+  data:
+    DB_PASSWORD: "super-secret-password"
+{{- end }}
+
 {{- if .GenerateExternalSecret }}
 externalSecret:
   enabled: true
@@ -102,6 +109,13 @@ externalSecret:
     - secretKey: "DATABASE_URL"
       remoteKey: "prod/db/url"
       property: "connectionString"
+{{- end }}
+
+{{- if .GenerateSealedSecret }}
+sealedSecret:
+  enabled: true
+  encryptedData:
+    DB_PASSWORD: AgBw... # encrypted password placeholder
 {{- end }}
 
 {{- if .GenerateHPA }}
@@ -485,6 +499,20 @@ data:
 {{- end }}
 `
 
+const SecretTemplate = `{{- if .Values.secret.enabled -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  {{- toYaml .Values.secret.data | nindent 2 }}
+{{- end }}
+`
+
 const ExternalSecretTemplate = `{{- if .Values.externalSecret.enabled -}}
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
@@ -508,6 +536,25 @@ spec:
         key: {{ .remoteKey }}
         property: {{ .property }}
     {{- end }}
+{{- end }}
+`
+
+const SealedSecretTemplate = `{{- if .Values.sealedSecret.enabled -}}
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+spec:
+  encryptedData:
+    {{- toYaml .Values.sealedSecret.encryptedData | nindent 4 }}
+  template:
+    metadata:
+      name: {{ include "kgen.fullname" . }}
+      labels:
+        {{- include "kgen.labels" . | nindent 8 }}
 {{- end }}
 `
 

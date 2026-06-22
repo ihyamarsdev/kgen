@@ -33,7 +33,9 @@ type Config struct {
 	GenerateIngress        bool
 	GenerateGateway        bool
 	GenerateConfigMap      bool
+	GenerateSecret         bool
 	GenerateExternalSecret bool
+	GenerateSealedSecret   bool
 	GenerateHPA            bool
 	GenerateServiceMonitor bool
 	GeneratePDB            bool
@@ -120,9 +122,21 @@ func Generate(cfg Config, outputDir string) error {
 		}
 	}
 
+	if cfg.GenerateSecret {
+		if err := os.WriteFile(filepath.Join(templatesDir, "secret.yaml"), []byte(SecretTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write secret.yaml: %w", err)
+		}
+	}
+
 	if cfg.GenerateExternalSecret {
 		if err := os.WriteFile(filepath.Join(templatesDir, "externalsecret.yaml"), []byte(ExternalSecretTemplate), 0644); err != nil {
 			return fmt.Errorf("failed to write externalsecret.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateSealedSecret {
+		if err := os.WriteFile(filepath.Join(templatesDir, "sealedsecret.yaml"), []byte(SealedSecretTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write sealedsecret.yaml: %w", err)
 		}
 	}
 
