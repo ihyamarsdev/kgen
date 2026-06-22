@@ -101,6 +101,30 @@ kgen edit [chart-directory]
 ```
 If `chart-directory` is omitted, KGen will check if the current directory is a valid Helm chart, or list the generated charts inside your default `~/kgen/` folder to choose from.
 
+### 5. Update KGen (`kgen update`)
+
+To check for the latest release and update kgen in-place:
+```bash
+kgen update
+```
+
+To skip the confirmation prompt (useful for automation):
+```bash
+kgen update -y
+```
+
+### 6. Uninstall KGen (`kgen uninstall`)
+
+To remove the kgen binary, generated charts (`~/kgen/`), and configuration (`~/.config/kgen/`):
+```bash
+kgen uninstall
+```
+
+To skip the confirmation prompt:
+```bash
+kgen uninstall -y
+```
+
 ---
 
 ## Project Structure
@@ -108,9 +132,12 @@ If `chart-directory` is omitted, KGen will check if the current directory is a v
 ```text
 kgen/
 ├── cmd/
-│   ├── root.go        # Cobra root command
+│   ├── common.go      # Shared helpers (confirmation, error printing)
+│   ├── root.go        # Cobra root command (includes --version flag)
 │   ├── create.go      # 'kgen create' command
 │   ├── edit.go        # 'kgen edit' command
+│   ├── uninstall.go   # 'kgen uninstall' command
+│   ├── update.go      # 'kgen update' command
 │   ├── validate.go    # 'kgen validate' command
 │   └── explain.go     # 'kgen explain' command
 ├── internal/
@@ -121,8 +148,10 @@ kgen/
 │   │   ├── styles.go    # Lipgloss styling tokens
 │   │   ├── selector.go  # File selector/editor Bubble Tea TUI
 │   │   └── wizard.go    # Bubble Tea TUI implementation
-│   └── validator/
-│       └── validator.go # Best practices validator
+│   ├── validator/
+│   │   └── validator.go # Best practices validator
+│   └── version/
+│       └── version.go   # Version, repo metadata, and build-time constants
 ├── dist/              # Distribution directory for precompiled binaries
 ├── install.sh         # Installer shell script
 ├── main.go            # Entrypoint

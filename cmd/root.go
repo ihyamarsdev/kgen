@@ -5,18 +5,34 @@ import (
 	"os"
 
 	"kgen/internal/tui"
+	"kgen/internal/version"
 
 	"github.com/spf13/cobra"
 )
+
+// versionFlag is set via the --version flag on the root command.
+var versionFlag bool
 
 var rootCmd = &cobra.Command{
 	Use:   "kgen",
 	Short: "KGen is an interactive CLI tool for generating Helm charts",
 	Long: `KGen (Kubernetes & Helm Generator) helps developers, DevOps, and platform teams
 generate standardized, production-ready Helm charts via a beautiful terminal TUI.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// `kgen --version` prints the version and exits.
+		if versionFlag {
+			fmt.Printf("kgen version %s\n", version.Version)
+			return
+		}
+		// No subcommand and no --version: show help.
+		_ = cmd.Help()
+	},
 }
 
 func init() {
+	// --version flag prints the current KGen version.
+	rootCmd.Flags().BoolVarP(&versionFlag, "version", "V", false, "print the kgen version and exit")
+
 	// Customize the Cobra help template to be beautiful
 	cobra.AddTemplateFunc("styleHeading", func(s string) string {
 		return tui.HeaderStyle.Render(s)
