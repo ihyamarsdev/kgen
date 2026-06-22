@@ -93,6 +93,14 @@ To view descriptions and purposes of supported Kubernetes resources:
 kgen explain
 ```
 
+### 4. View or Edit Generated Charts (`kgen edit`)
+
+To list and interactively view or edit generated files in a Helm chart:
+```bash
+kgen edit [chart-directory]
+```
+If `chart-directory` is omitted, KGen will check if the current directory is a valid Helm chart, or list the generated charts inside your default `~/kgen/` folder to choose from.
+
 ---
 
 ## Project Structure
@@ -102,6 +110,7 @@ kgen/
 ├── cmd/
 │   ├── root.go        # Cobra root command
 │   ├── create.go      # 'kgen create' command
+│   ├── edit.go        # 'kgen edit' command
 │   ├── validate.go    # 'kgen validate' command
 │   └── explain.go     # 'kgen explain' command
 ├── internal/
@@ -110,6 +119,7 @@ kgen/
 │   │   └── templates.go # Helm templates catalog
 │   ├── tui/
 │   │   ├── styles.go    # Lipgloss styling tokens
+│   │   ├── selector.go  # File selector/editor Bubble Tea TUI
 │   │   └── wizard.go    # Bubble Tea TUI implementation
 │   └── validator/
 │       └── validator.go # Best practices validator
@@ -118,3 +128,4 @@ kgen/
 ├── main.go            # Entrypoint
 └── prd.md             # Project requirements and specification
 ```
+
