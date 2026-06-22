@@ -22,11 +22,11 @@ func InitialSelectorModel(files []string) SelectorModel {
 	}
 }
 
-func (m SelectorModel) Init() tea.Cmd {
+func (m *SelectorModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -60,7 +60,7 @@ func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m SelectorModel) View() string {
+func (m *SelectorModel) View() string {
 	if m.Quitted && m.SelectedFile == "" {
 		return ""
 	}
