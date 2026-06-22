@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"kgen/internal/generator"
@@ -161,6 +162,88 @@ var createCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Ready to deploy! You can validate it by running:\n  kgen validate %s\n\n", targetDir)
+
+		// Compile the generated files list for editing
+		var generatedFiles []string
+		addGenFile := func(name string, exists bool) {
+			if exists {
+				generatedFiles = append(generatedFiles, name)
+			}
+		}
+
+		// Always generated files
+		generatedFiles = append(generatedFiles, "Chart.yaml", "values.yaml", "templates/_helpers.tpl")
+
+		addGenFile("templates/deployment.yaml", cfg.GenerateDeployment)
+		addGenFile("templates/service.yaml", cfg.GenerateService)
+		addGenFile("templates/ingress.yaml", cfg.GenerateIngress)
+		addGenFile("templates/gateway.yaml", cfg.GenerateGateway)
+		addGenFile("templates/httproute.yaml", cfg.GenerateGateway)
+		addGenFile("templates/configmap.yaml", cfg.GenerateConfigMap)
+		addGenFile("templates/secret.yaml", cfg.GenerateSecret)
+		addGenFile("templates/externalsecret.yaml", cfg.GenerateExternalSecret)
+		addGenFile("templates/sealedsecret.yaml", cfg.GenerateSealedSecret)
+		addGenFile("templates/hpa.yaml", cfg.GenerateHPA)
+		addGenFile("templates/vpa.yaml", cfg.GenerateVPA)
+		addGenFile("templates/scaledobject.yaml", cfg.GenerateKEDA)
+		addGenFile("templates/statefulset.yaml", cfg.GenerateStatefulSet)
+		addGenFile("templates/cronjob.yaml", cfg.GenerateCronJob)
+		addGenFile("templates/application.yaml", cfg.GenerateArgoCD)
+		addGenFile("templates/applicationset.yaml", cfg.GenerateArgoCDSet)
+		addGenFile("templates/helmrelease.yaml", cfg.GenerateFlux)
+		addGenFile("templates/fluxkustomization.yaml", cfg.GenerateFlux)
+		addGenFile("templates/virtualservice.yaml", cfg.GenerateIstio)
+		addGenFile("templates/pvc.yaml", cfg.GeneratePVC)
+		addGenFile("templates/networkpolicy.yaml", cfg.GenerateNetworkPolicy)
+		addGenFile("templates/servicemonitor.yaml", cfg.GenerateServiceMonitor)
+		addGenFile("templates/podmonitor.yaml", cfg.GeneratePodMonitor)
+		addGenFile("templates/prometheusrule.yaml", cfg.GeneratePrometheusRule)
+		addGenFile("templates/grafanadashboard.yaml", cfg.GenerateGrafanaDashboard)
+		addGenFile("templates/pdb.yaml", cfg.GeneratePDB)
+		addGenFile("templates/priorityclass.yaml", cfg.GeneratePriorityClass)
+		addGenFile("templates/serviceaccount.yaml", cfg.GenerateServiceAccount)
+		addGenFile("templates/role.yaml", cfg.GenerateRole)
+		addGenFile("templates/rolebinding.yaml", cfg.GenerateRoleBinding)
+		addGenFile("templates/clusterrole.yaml", cfg.GenerateClusterRole)
+		addGenFile("templates/clusterrolebinding.yaml", cfg.GenerateClusterRoleBinding)
+
+		// Interactive File Editing Loop
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			// Find standard editors: nano, vim, vi
+			for _, e := range []string{"nano", "vim", "vi"} {
+				if _, err := exec.LookPath(e); err == nil {
+					editor = e
+					break
+				}
+			}
+		}
+
+		if editor != "" {
+			for {
+				selModel := tui.InitialSelectorModel(generatedFiles)
+				selProg := tea.NewProgram(&selModel)
+				mRes, err := selProg.Run()
+				if err != nil {
+					break
+				}
+				resModel, ok := mRes.(*tui.SelectorModel)
+				if !ok || resModel.Quitted || resModel.SelectedFile == "" {
+					break
+				}
+
+				// Launch Editor
+				filePath := filepath.Join(targetDir, resModel.SelectedFile)
+				cmdEdit := exec.Command(editor, filePath)
+				cmdEdit.Stdin = os.Stdin
+				cmdEdit.Stdout = os.Stdout
+				cmdEdit.Stderr = os.Stderr
+				_ = cmdEdit.Run()
+			}
+		} else {
+			fmt.Println("No terminal editor ($EDITOR, nano, vim, vi) found in path. Skipping file edit option.")
+		}
+
 		_ = successStyle // silence compiler if unused
 	},
 }
