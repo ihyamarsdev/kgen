@@ -182,7 +182,7 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case StepQuality:
 					m.Step = StepMode
 				case StepCustomResources:
-					m.Step = StepQuality
+					m.Step = StepMode
 				case StepSecretBackend:
 					m.Step = StepCustomResources
 				case StepConfirm:
@@ -291,7 +291,11 @@ func (m *WizardModel) updateMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			m.Step = StepQuality
+			if m.SelectedMode == ModeCustom {
+				m.Step = StepCustomResources
+			} else {
+				m.Step = StepQuality
+			}
 		}
 	}
 	return m, nil
@@ -630,23 +634,36 @@ func (m *WizardModel) View() string {
 }
 
 func (m *WizardModel) renderProgress() string {
-	steps := []string{"App Info", "Mode", "Quality", "Resources", "Confirm"}
-	var rendered []string
+	var steps []string
+	var currentStepIndex int
 
-	currentStepIndex := 0
-	switch m.Step {
-	case StepAppInfo:
-		currentStepIndex = 0
-	case StepMode:
-		currentStepIndex = 1
-	case StepQuality:
-		currentStepIndex = 2
-	case StepCustomResources, StepSecretBackend:
-		currentStepIndex = 3
-	case StepConfirm:
-		currentStepIndex = 4
+	if m.SelectedMode == ModeCustom {
+		steps = []string{"App Info", "Mode", "Resources", "Confirm"}
+		switch m.Step {
+		case StepAppInfo:
+			currentStepIndex = 0
+		case StepMode:
+			currentStepIndex = 1
+		case StepCustomResources, StepSecretBackend:
+			currentStepIndex = 2
+		case StepConfirm:
+			currentStepIndex = 3
+		}
+	} else {
+		steps = []string{"App Info", "Mode", "Quality", "Confirm"}
+		switch m.Step {
+		case StepAppInfo:
+			currentStepIndex = 0
+		case StepMode:
+			currentStepIndex = 1
+		case StepQuality:
+			currentStepIndex = 2
+		case StepConfirm:
+			currentStepIndex = 3
+		}
 	}
 
+	var rendered []string
 	for i, s := range steps {
 		if i == currentStepIndex {
 			rendered = append(rendered, StepStyle.Render(fmt.Sprintf("[%s]", s)))
