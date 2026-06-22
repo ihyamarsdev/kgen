@@ -1,78 +1,101 @@
 # KGen (Kubernetes & Helm Generator CLI)
 
-**KGen** adalah CLI interaktif untuk menghasilkan Helm Chart production-ready berdasarkan kebutuhan pengguna, tanpa harus memahami seluruh resource Kubernetes dan Helm secara mendalam.
+**KGen** is an interactive command-line interface (CLI) designed to generate production-ready Helm Charts based on user requirements—without requiring deep, initial expertise in all Kubernetes resources and Helm structures.
 
-KGen membantu developer, DevOps Engineer, dan Platform Engineer membuat standar deployment Kubernetes yang konsisten melalui wizard interaktif berbasis terminal yang indah.
-
----
-
-## Fitur Utama
-
-- **TUI (Terminal UI) Interaktif**: Menggunakan [Bubble Tea](https://github.com/charmbracelet/bubbletea) untuk memberikan pengalaman CLI yang modern dan intuitif, lengkap dengan *Help Menu* interaktif dengan menekan tombol `?`.
-- **Tiga Mode Deployment**:
-  - **Simple Mode**: Hanya membuat `Deployment` dan `Service` (cocok untuk development/internal tools).
-  - **Advanced Mode**: Membuat `Deployment`, `Service`, `Ingress`, dan `HPA` (cocok untuk production workloads).
-  - **Custom Mode**: Memungkinkan pengguna memilih sendiri resource yang ingin di-generate.
-- **Konfigurasi Berbasis Profil**:
-  - `--profile dev`: Default untuk environment development (replicaCount=1, Ingress/HPA disabled).
-  - `--profile prod`: Default untuk environment production (replicaCount=3, Ingress/HPA enabled dengan best practice resource limits dan security context).
-- **Validation Engine**: Periksa apakah konfigurasi Helm Chart Anda memenuhi standar best practices Kubernetes (limits, requests, probes, security context).
-- **Explain Command**: Memberikan penjelasan sederhana mengenai fungsi masing-masing resource Kubernetes yang dibuat.
+KGen helps developers, DevOps, and Platform Engineers establish consistent Kubernetes deployment standards through an interactive and aesthetic terminal-based wizard.
 
 ---
 
-## Cara Instalasi
+## Key Features
 
-Pastikan Anda memiliki Go (versi 1.22 ke atas) yang terinstal di sistem Anda.
+- **Interactive Terminal UI (TUI)**: Utilizes [Bubble Tea](https://github.com/charmbracelet/bubbletea) to deliver a modern, intuitive CLI experience, complete with an interactive *Help Menu* available by pressing `?`.
+- **Three Deployment Modes**:
+  - **Simple Mode**: Generates only `Deployment` and `Service` (perfect for development or internal tooling).
+  - **Advanced Mode**: Generates `Deployment`, `Service`, `Ingress`, `HPA`, `PDB`, `ServiceMonitor`, and `NetworkPolicy` (tailored for production workloads).
+  - **Custom Mode**: Empowers users to select individual resources from a checklist of categories (Workloads, Storage, RBAC, Networking, Scaling, Configuration, Monitoring, GitOps).
+- **Profile-Based Configuration**:
+  - `--profile dev`: Standard development profile (replicaCount=1, Ingress/HPA disabled).
+  - `--profile prod`: Standard production profile (replicaCount=3, Ingress/HPA enabled, custom resource limits, and anti-affinity/topology constraints).
+- **Smart Dependency Engine**: Automatically recommends or toggles dependencies when selecting resources in Custom Mode (e.g. `StatefulSet` prompts PVC creation, `ServiceMonitor` requires a `Service`, `RoleBinding` triggers `Role` and `ServiceAccount`).
+- **Production Readiness Score**: Computes and displays a colored readiness score (out of 100) detailing compliance checks (probes, requests/limits, security policies) after generation.
+- **Best Practices Validator**: Run `kgen validate` to inspect generated files against best practice guidelines.
+- **Resource Explainer**: Run `kgen explain` to see functional descriptions of Kubernetes resources in clear, readable terms.
 
-1. Clone repositori ini.
-2. Build binary kgen:
+---
+
+## Installation
+
+### 1. Automatic Installation (Bash Script)
+
+You can download and install the precompiled binary for Linux/macOS automatically with the following command:
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/ihyamarsdev/kgen/main/install.sh | bash
+```
+
+### 2. Manual Installation (Go CLI)
+
+If you have Go installed (version 1.22 or above), you can install KGen directly from source:
+
+```bash
+go install github.com/ihyamarsdev/kgen@latest
+```
+
+### 3. Build from Source
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/ihyamarsdev/kgen.git
+   cd kgen
+   ```
+2. Build the binary:
    ```bash
    go build -o kgen main.go
    ```
-3. Pindahkan binary ke PATH Anda (opsional):
+3. Move the binary to your execution path (optional):
    ```bash
    mv kgen /usr/local/bin/
    ```
 
 ---
 
-## Panduan Penggunaan
+## Usage Guide
 
-### 1. Membuat Helm Chart Baru (`kgen create`)
+### 1. Generate a New Helm Chart (`kgen create`)
 
-Untuk memulai wizard interaktif pembuatan Helm Chart (secara default output akan disimpan di folder `~/kgen/<app-name>`):
+To start the interactive terminal wizard:
 ```bash
-./kgen create
+kgen create
+```
+*Note: By default, generated charts are stored in your home directory at `~/kgen/<app-name>`.*
+
+To run using the production profile:
+```bash
+kgen create --profile prod
 ```
 
-Atau pilih profil tertentu saat pembuatan:
+To specify a custom output directory:
 ```bash
-./kgen create --profile prod
+kgen create -o ./my-helm-chart
 ```
 
-Anda juga dapat menentukan folder output secara spesifik:
+### 2. Validate Best Practices (`kgen validate`)
+
+To run security and reliability checks on an existing Helm Chart:
 ```bash
-./kgen create -o ./my-helm-chart
+kgen validate ./my-helm-chart
 ```
 
-### 2. Validasi Best Practices (`kgen validate`)
+### 3. Resource Explanations (`kgen explain`)
 
-Untuk melakukan pemindaian standar keamanan dan keandalan pada Helm Chart:
+To view descriptions and purposes of supported Kubernetes resources:
 ```bash
-./kgen validate ./my-helm-chart
-```
-
-### 3. Penjelasan Resource (`kgen explain`)
-
-Untuk melihat ringkasan deskripsi fungsionalitas resource Kubernetes yang didukung:
-```bash
-./kgen explain
+kgen explain
 ```
 
 ---
 
-## Struktur Proyek
+## Project Structure
 
 ```text
 kgen/
@@ -84,12 +107,14 @@ kgen/
 ├── internal/
 │   ├── generator/
 │   │   ├── generator.go # Core generator logic
-│   │   └── templates.go # Helm templates (deployment, service, ingress, hpa)
+│   │   └── templates.go # Helm templates catalog
 │   ├── tui/
 │   │   ├── styles.go    # Lipgloss styling tokens
 │   │   └── wizard.go    # Bubble Tea TUI implementation
 │   └── validator/
 │       └── validator.go # Best practices validator
-├── main.go
-└── prd.md
+├── dist/              # Distribution directory for precompiled binaries
+├── install.sh         # Installer shell script
+├── main.go            # Entrypoint
+└── prd.md             # Project requirements and specification
 ```
