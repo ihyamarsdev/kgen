@@ -1,452 +1,420 @@
-## Revisi PRD - Custom Mode
+# Revisi Resource Catalog
 
-### Custom Mode Flow
-
-```bash
-kgen create --mode custom
-```
-
-Tampilan Bubble Tea:
+## Workloads
 
 ```text
-┌────────────────────────────────────┐
-│ Select Resources                   │
-├────────────────────────────────────┤
-│ [✓] Deployment                     │
-│ [✓] Service                        │
-│ [✓] Ingress                        │
-│ [ ] Gateway API                    │
-│ [✓] ConfigMap                      │
-│ [✓] ExternalSecret                 │
-│ [✓] HPA                            │
-│ [✓] ServiceMonitor                 │
-│ [✓] PDB                            │
-│ [ ] VPA                            │
-│ [ ] KEDA                           │
-│ [ ] StatefulSet                    │
-│ [ ] CronJob                        │
-│ [ ] ArgoCD Application             │
-│ [ ] Istio VirtualService           │
-└────────────────────────────────────┘
+Workloads
+├── Deployment
+├── StatefulSet
+├── DaemonSet
+├── Job
+└── CronJob
+```
 
-[ Space ] Toggle
-[ Enter ] Continue
+### Smart Rules
+
+Jika user memilih:
+
+```text
+✓ StatefulSet
+```
+
+KGen otomatis bertanya:
+
+```text
+Persistent Storage Required?
+
+(*) Create PVC
+( ) Existing PVC
+```
+
+Karena StatefulSet tanpa storage persisten jarang digunakan.
+
+---
+
+## Storage
+
+Kategori baru yang berdiri sendiri.
+
+```text
+Storage
+├── PersistentVolumeClaim
+├── Existing PVC
+├── StorageClass Reference
+└── CSI Volume
+```
+
+### Wizard
+
+```text
+Storage Class: longhorn
+Size: 20Gi
+Access Mode:
+
+(*) ReadWriteOnce
+( ) ReadWriteMany
+```
+
+Template:
+
+```yaml
+persistence:
+  enabled: true
+  storageClass: longhorn
+  size: 20Gi
 ```
 
 ---
 
-# Resource Catalog
+## Identity & RBAC
 
-## Workloads
+Kategori baru.
 
-### Deployment
-
-```yaml
-deployment.yaml
+```text
+Identity & RBAC
+├── ServiceAccount
+├── Role
+├── RoleBinding
+├── ClusterRole
+└── ClusterRoleBinding
 ```
 
-### StatefulSet
+### Wizard
 
-```yaml
-statefulset.yaml
+```text
+Create Dedicated ServiceAccount?
+
+(*) Yes
+( ) No
 ```
 
-### DaemonSet
+Jika Yes:
 
-```yaml
-daemonset.yaml
+```text
+ServiceAccount Name:
+payment-api
 ```
 
-### Job
+### RBAC Presets
 
-```yaml
-job.yaml
+```text
+RBAC Level
+
+(*) Read Only
+( ) Namespace Admin
+( ) Custom
 ```
 
-### CronJob
+Atau:
 
-```yaml
-cronjob.yaml
+```text
+Resources:
+[x] ConfigMaps
+[x] Secrets
+[x] Pods
+[ ] Deployments
 ```
 
 ---
 
 ## Networking
 
-### Service
-
-```yaml
-service.yaml
+```text
+Networking
+├── Service
+├── Ingress
+├── Gateway API
+└── NetworkPolicy
 ```
 
-### Ingress
+### NetworkPolicy Presets
 
-```yaml
-ingress.yaml
+```text
+Network Policy
+
+(*) Disabled
+( ) Default Deny
+( ) Allow Namespace Only
+( ) Custom
 ```
 
-### Gateway API
+Ini akan sangat membantu developer yang belum memahami syntax NetworkPolicy.
 
-```yaml
-gateway.yaml
-httproute.yaml
-```
+---
 
-### NetworkPolicy
+## Scaling & Reliability
 
-```yaml
-networkpolicy.yaml
+```text
+Scaling & Reliability
+├── HPA
+├── VPA
+├── KEDA
+├── PDB
+├── Pod Anti Affinity
+├── Topology Spread Constraints
+└── Priority Class
 ```
 
 ---
 
-## Storage
+## Secrets & Configuration
 
-### PersistentVolumeClaim
-
-```yaml
-pvc.yaml
+```text
+Secrets & Configuration
+├── ConfigMap
+├── Secret
+├── ExternalSecret
+└── SealedSecret
 ```
 
-### StorageClass Reference
+### Secret Type
 
-```yaml
-storageClassName:
-```
+```text
+Secret Type
 
-### CSI Volume
-
-```yaml
-volumes:
-```
-
----
-
-## Configuration
-
-### ConfigMap
-
-```yaml
-configmap.yaml
-```
-
-### Secret
-
-```yaml
-secret.yaml
-```
-
-### ExternalSecret
-
-```yaml
-externalsecret.yaml
-```
-
-### SealedSecret
-
-```yaml
-sealedsecret.yaml
-```
-
----
-
-## Autoscaling
-
-### HorizontalPodAutoscaler
-
-```yaml
-hpa.yaml
-```
-
-### VerticalPodAutoscaler
-
-```yaml
-vpa.yaml
-```
-
-### KEDA
-
-```yaml
-scaledobject.yaml
-triggerauthentication.yaml
-```
-
----
-
-## Security
-
-### ServiceAccount
-
-```yaml
-serviceaccount.yaml
-```
-
-### Role
-
-```yaml
-role.yaml
-```
-
-### RoleBinding
-
-```yaml
-rolebinding.yaml
-```
-
-### ClusterRole
-
-```yaml
-clusterrole.yaml
-```
-
-### ClusterRoleBinding
-
-```yaml
-clusterrolebinding.yaml
-```
-
-### SecurityContext
-
-Diinject ke Deployment:
-
-```yaml
-securityContext:
-```
-
----
-
-## Reliability
-
-### PodDisruptionBudget
-
-```yaml
-pdb.yaml
-```
-
-### Pod Anti Affinity
-
-```yaml
-affinity:
-```
-
-### Topology Spread Constraints
-
-```yaml
-topologySpreadConstraints:
-```
-
-### PriorityClass
-
-```yaml
-priorityClassName:
+(*) Opaque
+( ) Docker Registry
+( ) TLS
+( ) SSH
 ```
 
 ---
 
 ## Monitoring
 
-### ServiceMonitor
-
-```yaml
-servicemonitor.yaml
-```
-
-### PodMonitor
-
-```yaml
-podmonitor.yaml
-```
-
-### PrometheusRule
-
-```yaml
-prometheusrule.yaml
-```
-
-### GrafanaDashboard
-
-```yaml
-grafanadashboard.yaml
-```
-
----
-
-## Certificates
-
-### Issuer
-
-```yaml
-issuer.yaml
-```
-
-### ClusterIssuer
-
-```yaml
-clusterissuer.yaml
-```
-
-### Certificate
-
-```yaml
-certificate.yaml
+```text
+Monitoring
+├── ServiceMonitor
+├── PodMonitor
+├── PrometheusRule
+└── GrafanaDashboard
 ```
 
 ---
 
 ## GitOps
 
-### Argo CD
-
-Resource:
-
-```yaml
-application.yaml
-applicationset.yaml
-appproject.yaml
-```
-
-### Flux
-
-Resource:
-
-```yaml
-gitrepository.yaml
-helmrepository.yaml
-helmrelease.yaml
-kustomization.yaml
+```text
+GitOps
+├── ArgoCD Application
+├── ArgoCD ApplicationSet
+├── Flux HelmRelease
+└── Flux Kustomization
 ```
 
 ---
 
-## Service Mesh
+# UX Improvement untuk Bubble Tea
 
-### Istio
+Saya setuju 100%.
 
-```yaml
-virtualservice.yaml
-destinationrule.yaml
-gateway.yaml
-authorizationpolicy.yaml
-requestauthentication.yaml
-peerauthentication.yaml
+Jika resource sudah mencapai 30-50 item, checklist panjang akan menjadi sulit digunakan.
+
+Daripada:
+
+```text
+[ ] Deployment
+[ ] StatefulSet
+[ ] DaemonSet
+[ ] Job
+[ ] CronJob
+[ ] Service
+[ ] Ingress
+...
+```
+
+lebih baik menggunakan tampilan bertingkat:
+
+```text
+Categories
+
+> Workloads
+  Networking
+  Storage
+  Identity & RBAC
+  Secrets & Config
+  Scaling & Reliability
+  Monitoring
+  GitOps
+```
+
+Ketika Enter:
+
+```text
+Workloads
+
+[x] Deployment
+[ ] StatefulSet
+[ ] DaemonSet
+[ ] Job
+[ ] CronJob
+```
+
+Mirip pengalaman menggunakan installer Linux atau package manager TUI.
+
+---
+
+# Dependency Engine yang Perlu Ditambahkan
+
+Ini menurut saya akan menjadi fitur pembeda KGen.
+
+## StatefulSet
+
+```text
+StatefulSet selected
+```
+
+otomatis:
+
+```text
+Suggested:
+[x] PersistentVolumeClaim
 ```
 
 ---
 
-# Smart Dependency Engine
-
-KGen harus otomatis mendeteksi dependency.
-
-Contoh:
-
-Jika user memilih:
+## ServiceMonitor
 
 ```text
-✓ ServiceMonitor
+ServiceMonitor selected
 ```
 
-maka otomatis:
+otomatis:
 
 ```text
-✓ Service
+Required:
+[x] Service
 ```
-
-karena ServiceMonitor membutuhkan Service.
 
 ---
 
-Jika memilih:
+## RoleBinding
 
 ```text
-✓ HPA
+RoleBinding selected
 ```
 
-maka KGen menyarankan:
+otomatis:
+
+```text
+Required:
+[x] Role
+[x] ServiceAccount
+```
+
+---
+
+## HPA
+
+```text
+HPA selected
+```
+
+otomatis:
+
+```text
+Suggested:
+[x] CPU Request
+[x] Memory Request
+```
+
+---
+
+## Ingress
+
+```text
+Ingress selected
+```
+
+otomatis:
+
+```text
+Suggested:
+[x] TLS Certificate
+```
+
+dan menawarkan:
+
+```text
+TLS Provider
+
+(*) cert-manager
+( ) Existing Secret
+```
+
+---
+
+# Production Readiness Score
+
+Setelah generate:
+
+```text
+Production Readiness Score
+
+86/100
+```
+
+Detail:
 
 ```text
 ✓ Resource Requests
+✓ Resource Limits
+✓ Readiness Probe
+✓ Liveness Probe
+✓ HPA
+✓ PDB
+✓ NetworkPolicy
+
+✗ Topology Spread Constraints
+✗ Pod Anti Affinity
 ```
 
-karena HPA tanpa request CPU/Memory kurang optimal.
+Ini akan memberikan nilai tambah yang tidak dimiliki `helm create`.
 
----
+# Kesimpulan
 
-Jika memilih:
+Jika saya menjadi Product Owner, maka **resource wajib v1.0** adalah:
 
-```text
-✓ StatefulSet
-```
+### Workloads
 
-maka KGen menawarkan:
+* Deployment
+* StatefulSet
+* DaemonSet
+* Job
+* CronJob
 
-```text
-✓ PVC
-```
+### Storage
 
----
+* PVC
 
-Jika memilih:
+### Identity & RBAC
 
-```text
-✓ ExternalSecret
-```
+* ServiceAccount
+* Role
+* RoleBinding
+* ClusterRole
+* ClusterRoleBinding
 
-maka KGen menanyakan:
+### Networking
 
-```text
-Secret Backend:
-- Vault
-- AWS Secrets Manager
-- GCP Secret Manager
-- Azure Key Vault
-```
+* Service
+* Ingress
+* NetworkPolicy
 
----
+### Configuration
 
-# Template Quality Level
+* ConfigMap
+* Secret
+* ExternalSecret
 
-Tambahkan pilihan kualitas template:
+### Reliability
 
-```text
-Template Quality
-
-( ) Basic
-(*) Production
-( ) Enterprise
-```
-
-### Basic
-
-* Resource minimum
-
-### Production
-
-* Requests/Limits
-* Probes
 * HPA
 * PDB
 
-### Enterprise
+### Monitoring
 
-* NetworkPolicy
-* TopologySpreadConstraints
-* PodSecurityContext
 * ServiceMonitor
-* AntiAffinity
 
----
-
-# Estimasi Resource untuk v1.0
-
-Target sekitar **40–50 template resource** yang mencakup:
-
-* Core Kubernetes
-* Monitoring
-* Security
-* Autoscaling
-* GitOps
-* Service Mesh
-* Certificate Management
-
-Dengan cakupan ini, KGen bukan hanya "Helm Generator", tetapi mulai mendekati **Platform Engineering Bootstrap Tool** yang bisa menjadi alternatif modern untuk `helm create` dengan pengalaman TUI yang jauh lebih baik menggunakan Bubble Tea.
+Dengan kombinasi ini, KGen sudah bisa menghasilkan sekitar **90% kebutuhan deployment aplikasi modern di Kubernetes**, mulai dari aplikasi stateless sederhana hingga workload production yang membutuhkan storage, RBAC, monitoring, dan keamanan jaringan.
 

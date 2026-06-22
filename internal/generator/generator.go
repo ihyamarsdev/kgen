@@ -27,26 +27,53 @@ type Config struct {
 	// Secret Backend for ExternalSecret: vault, aws, gcp, azure
 	SecretBackend string
 
+	// Smart Wizard Inputs
+	StorageClass         string
+	StorageSize          string
+	StorageAccessMode    string
+	ServiceAccountName   string
+	RbacLevel            string
+	RbacCustomResources  []string
+	IngressTlsEnabled    bool
+	IngressTlsProvider   string
+	NetworkPolicyPreset  string
+
 	// Resources to generate
-	GenerateDeployment     bool
-	GenerateService        bool
-	GenerateIngress        bool
-	GenerateGateway        bool
-	GenerateConfigMap      bool
-	GenerateSecret         bool
-	GenerateExternalSecret bool
-	GenerateSealedSecret   bool
-	GenerateHPA            bool
-	GenerateServiceMonitor bool
-	GeneratePDB            bool
-	GenerateVPA            bool
-	GenerateKEDA           bool
-	GenerateStatefulSet    bool
-	GenerateCronJob        bool
-	GenerateArgoCD         bool
-	GenerateIstio          bool
-	GeneratePVC            bool
-	GenerateNetworkPolicy  bool
+	GenerateDeployment        bool
+	GenerateService           bool
+	GenerateIngress           bool
+	GenerateGateway           bool
+	GenerateConfigMap         bool
+	GenerateSecret            bool
+	GenerateExternalSecret    bool
+	GenerateSealedSecret      bool
+	GenerateHPA               bool
+	GenerateServiceMonitor    bool
+	GeneratePDB               bool
+	GenerateVPA               bool
+	GenerateKEDA              bool
+	GenerateStatefulSet       bool
+	GenerateCronJob           bool
+	GenerateArgoCD            bool
+	GenerateIstio             bool
+	GeneratePVC               bool
+	GenerateNetworkPolicy     bool
+	GenerateDaemonSet         bool
+	GenerateJob               bool
+	GenerateServiceAccount    bool
+	GenerateRbac              bool // Role and RoleBinding
+	GenerateRole              bool
+	GenerateRoleBinding       bool
+	GenerateClusterRole       bool
+	GenerateClusterRoleBinding bool
+	GeneratePriorityClass     bool
+	GeneratePodMonitor        bool
+	GeneratePrometheusRule    bool
+	GenerateGrafanaDashboard  bool
+	GenerateArgoCDSet         bool
+	GenerateFlux              bool
+	GeneratePodAntiAffinity   bool
+	GenerateTopologySpreadConstraints bool
 }
 
 func Generate(cfg Config, outputDir string) error {
@@ -59,7 +86,11 @@ func Generate(cfg Config, outputDir string) error {
 
 	// Helper function to render a template and write to file
 	renderAndWrite := func(tmplStr, filePath string) error {
-		tmpl, err := template.New(filepath.Base(filePath)).Parse(tmplStr)
+		tmpl, err := template.New(filepath.Base(filePath)).Funcs(template.FuncMap{
+			"quote": func(s string) string {
+				return fmt.Sprintf("%q", s)
+			},
+		}).Parse(tmplStr)
 		if err != nil {
 			return fmt.Errorf("failed to parse template for %s: %w", filePath, err)
 		}
@@ -203,6 +234,87 @@ func Generate(cfg Config, outputDir string) error {
 	if cfg.GeneratePDB {
 		if err := os.WriteFile(filepath.Join(templatesDir, "pdb.yaml"), []byte(PdbTemplate), 0644); err != nil {
 			return fmt.Errorf("failed to write pdb.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateDaemonSet {
+		if err := os.WriteFile(filepath.Join(templatesDir, "daemonset.yaml"), []byte(DaemonSetTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write daemonset.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateJob {
+		if err := os.WriteFile(filepath.Join(templatesDir, "job.yaml"), []byte(JobTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write job.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateServiceAccount {
+		if err := os.WriteFile(filepath.Join(templatesDir, "serviceaccount.yaml"), []byte(ServiceAccountTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write serviceaccount.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateRole {
+		if err := os.WriteFile(filepath.Join(templatesDir, "role.yaml"), []byte(RoleTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write role.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateRoleBinding {
+		if err := os.WriteFile(filepath.Join(templatesDir, "rolebinding.yaml"), []byte(RoleBindingTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write rolebinding.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateClusterRole {
+		if err := os.WriteFile(filepath.Join(templatesDir, "clusterrole.yaml"), []byte(ClusterRoleTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write clusterrole.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateClusterRoleBinding {
+		if err := os.WriteFile(filepath.Join(templatesDir, "clusterrolebinding.yaml"), []byte(ClusterRoleBindingTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write clusterrolebinding.yaml: %w", err)
+		}
+	}
+
+	if cfg.GeneratePriorityClass {
+		if err := os.WriteFile(filepath.Join(templatesDir, "priorityclass.yaml"), []byte(PriorityClassTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write priorityclass.yaml: %w", err)
+		}
+	}
+
+	if cfg.GeneratePodMonitor {
+		if err := os.WriteFile(filepath.Join(templatesDir, "podmonitor.yaml"), []byte(PodMonitorTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write podmonitor.yaml: %w", err)
+		}
+	}
+
+	if cfg.GeneratePrometheusRule {
+		if err := os.WriteFile(filepath.Join(templatesDir, "prometheusrule.yaml"), []byte(PrometheusRuleTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write prometheusrule.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateGrafanaDashboard {
+		if err := os.WriteFile(filepath.Join(templatesDir, "grafanadashboard.yaml"), []byte(GrafanaDashboardTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write grafanadashboard.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateArgoCDSet {
+		if err := os.WriteFile(filepath.Join(templatesDir, "applicationset.yaml"), []byte(ArgoApplicationSetTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write applicationset.yaml: %w", err)
+		}
+	}
+
+	if cfg.GenerateFlux {
+		if err := os.WriteFile(filepath.Join(templatesDir, "helmrelease.yaml"), []byte(FluxHelmReleaseTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write helmrelease.yaml: %w", err)
+		}
+		if err := os.WriteFile(filepath.Join(templatesDir, "fluxkustomization.yaml"), []byte(FluxKustomizationTemplate), 0644); err != nil {
+			return fmt.Errorf("failed to write fluxkustomization.yaml: %w", err)
 		}
 	}
 

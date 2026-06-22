@@ -107,12 +107,59 @@ var createCmd = &cobra.Command{
 		printFile("statefulset.yaml", cfg.GenerateStatefulSet)
 		printFile("cronjob.yaml", cfg.GenerateCronJob)
 		printFile("application.yaml", cfg.GenerateArgoCD)
+		printFile("applicationset.yaml", cfg.GenerateArgoCDSet)
+		printFile("helmrelease.yaml", cfg.GenerateFlux)
+		printFile("fluxkustomization.yaml", cfg.GenerateFlux)
 		printFile("virtualservice.yaml", cfg.GenerateIstio)
 		printFile("pvc.yaml", cfg.GeneratePVC)
 		printFile("networkpolicy.yaml", cfg.GenerateNetworkPolicy)
 		printFile("servicemonitor.yaml", cfg.GenerateServiceMonitor)
+		printFile("podmonitor.yaml", cfg.GeneratePodMonitor)
+		printFile("prometheusrule.yaml", cfg.GeneratePrometheusRule)
+		printFile("grafanadashboard.yaml", cfg.GenerateGrafanaDashboard)
 		printFile("pdb.yaml", cfg.GeneratePDB)
+		printFile("priorityclass.yaml", cfg.GeneratePriorityClass)
+		printFile("serviceaccount.yaml", cfg.GenerateServiceAccount)
+		printFile("role.yaml", cfg.GenerateRole)
+		printFile("rolebinding.yaml", cfg.GenerateRoleBinding)
+		printFile("clusterrole.yaml", cfg.GenerateClusterRole)
+		printFile("clusterrolebinding.yaml", cfg.GenerateClusterRoleBinding)
 		fmt.Println()
+
+		// Calculate Production Readiness Score
+		if cfg.GenerateDeployment || cfg.GenerateStatefulSet || cfg.GenerateDaemonSet {
+			score := 0
+			var scoreDetails []string
+
+			addCheck := func(name string, passed bool, points int) {
+				if passed {
+					score += points
+					scoreDetails = append(scoreDetails, fmt.Sprintf("  %s %s", tui.SuccessStyle.Render("✓"), name))
+				} else {
+					scoreDetails = append(scoreDetails, fmt.Sprintf("  %s %s", tui.ErrorStyle.Render("✗"), name))
+				}
+			}
+
+			isProdOrEnt := cfg.TemplateQuality == "production" || cfg.TemplateQuality == "enterprise"
+
+			addCheck("Resource Requests", isProdOrEnt, 15)
+			addCheck("Resource Limits", isProdOrEnt, 15)
+			addCheck("Readiness Probe", isProdOrEnt, 15)
+			addCheck("Liveness Probe", isProdOrEnt, 15)
+			addCheck("HPA", cfg.GenerateHPA, 10)
+			addCheck("PDB", cfg.GeneratePDB, 10)
+			addCheck("NetworkPolicy", cfg.GenerateNetworkPolicy, 10)
+			addCheck("Topology Spread Constraints", cfg.GenerateTopologySpreadConstraints, 5)
+			addCheck("Pod Anti Affinity", cfg.GeneratePodAntiAffinity, 5)
+
+			fmt.Println(tui.HeaderStyle.Render("Production Readiness Score"))
+			fmt.Printf("  Score: %d/100\n\n", score)
+			for _, detail := range scoreDetails {
+				fmt.Println(detail)
+			}
+			fmt.Println()
+		}
+
 		fmt.Printf("Ready to deploy! You can validate it by running:\n  kgen validate %s\n\n", targetDir)
 		_ = successStyle // silence compiler if unused
 	},

@@ -23,9 +23,9 @@ nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  create: true
+  create: {{ .GenerateServiceAccount }}
   annotations: {}
-  name: ""
+  name: "{{ .ServiceAccountName }}"
 
 podAnnotations: {}
 
@@ -63,13 +63,23 @@ service:
 ingress:
   enabled: true
   className: ""
-  annotations: {}
+  annotations:
+    {{- if .IngressTlsEnabled }}
+    {{- if eq .IngressTlsProvider "cert-manager" }}
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    {{- end }}
+    {{- end }}
   hosts:
     - host: {{ .AppName }}.local
       paths:
         - path: /
           pathType: ImplementationSpecific
-  tls: []
+  tls:
+    {{- if .IngressTlsEnabled }}
+    - secretName: "{{ .AppName }}-tls"
+      hosts:
+        - {{ .AppName }}.local
+    {{- end }}
 {{- end }}
 
 {{- if .GenerateGateway }}
@@ -166,8 +176,8 @@ pdb:
 {{- if .GenerateStatefulSet }}
 statefulset:
   serviceName: "{{ .AppName }}-headless"
-  storageClass: "standard"
-  storageSize: "10Gi"
+  storageClass: "{{ .StorageClass }}"
+  storageSize: "{{ .StorageSize }}"
 {{- end }}
 
 {{- if .GenerateCronJob }}
@@ -203,14 +213,50 @@ istio:
 {{- if .GeneratePVC }}
 pvc:
   enabled: true
-  accessMode: "ReadWriteOnce"
-  size: "10Gi"
-  storageClass: "standard"
+  accessMode: "{{ .StorageAccessMode }}"
+  size: "{{ .StorageSize }}"
+  storageClass: "{{ .StorageClass }}"
 {{- end }}
 
 {{- if .GenerateNetworkPolicy }}
 networkPolicy:
   enabled: true
+  preset: "{{ .NetworkPolicyPreset }}" # defaultdeny, namespaceonly, custom
+{{- end }}
+
+{{- if .GeneratePriorityClass }}
+priorityClass:
+  enabled: true
+{{- end }}
+
+{{- if .GeneratePodMonitor }}
+podMonitor:
+  enabled: true
+{{- end }}
+
+{{- if .GeneratePrometheusRule }}
+prometheusRule:
+  enabled: true
+{{- end }}
+
+{{- if .GenerateGrafanaDashboard }}
+grafanaDashboard:
+  enabled: true
+{{- end }}
+
+{{- if .GenerateFlux }}
+flux:
+  enabled: true
+{{- end }}
+
+{{- if .GenerateRbac }}
+rbac:
+  create: true
+  level: "{{ .RbacLevel }}" # readonly, admin, custom
+  customResources:
+    {{- range .RbacCustomResources }}
+    - {{ . | quote }}
+    {{- end }}
 {{- end }}
 
 {{- if eq .TemplateQuality "enterprise" }}
@@ -235,8 +281,35 @@ resources: {}
 
 nodeSelector: {}
 tolerations: []
-affinity: {}
-topologySpreadConstraints: []
+affinity:
+{{- if .GeneratePodAntiAffinity }}
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - {{ .AppName }}
+          topologyKey: kubernetes.io/hostname
+{{- else }}
+  {}
+{{- end }}
+
+topologySpreadConstraints:
+{{- if .GenerateTopologySpreadConstraints }}
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: {{ .AppName }}
+{{- else }}
+  []
+{{- end }}
+
 
 {{- if or (eq .TemplateQuality "production") (eq .TemplateQuality "enterprise") }}
 livenessProbe:
@@ -382,6 +455,10 @@ spec:
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 `
@@ -807,6 +884,15 @@ spec:
   policyTypes:
     - Ingress
     - Egress
+  {{- if eq .Values.networkPolicy.preset "defaultdeny" }}
+  # Default Deny all traffic
+  {{- else if eq .Values.networkPolicy.preset "namespaceonly" }}
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+  {{- else }}
   ingress:
     - from:
         - podSelector: {}
@@ -817,6 +903,7 @@ spec:
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
+  {{- end }}
 {{- end }}
 `
 
@@ -835,5 +922,270 @@ spec:
   resources:
     requests:
       storage: {{ .Values.pvc.size }}
+{{- end }}
+`
+
+const DaemonSetTemplate = `apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kgen.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kgen.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+`
+
+const JobTemplate = `apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          command: ["echo", "job started"]
+`
+
+const ServiceAccountTemplate = `{{- if .Values.serviceAccount.create -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kgen.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+{{- end }}
+`
+
+const RoleTemplate = `{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kgen.fullname" . }}-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+rules:
+  {{- if eq .Values.rbac.level "readonly" }}
+  - apiGroups: [""]
+    resources: ["pods", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  {{- else if eq .Values.rbac.level "admin" }}
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  {{- else }}
+  - apiGroups: [""]
+    resources:
+      {{- range .Values.rbac.customResources }}
+      - {{ . | quote }}
+      {{- end }}
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+{{- end }}
+`
+
+const RoleBindingTemplate = `{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "kgen.fullname" . }}-rolebinding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kgen.fullname" . }}-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kgen.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+`
+
+const ClusterRoleTemplate = `{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kgen.fullname" . }}-clusterrole
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "nodes"]
+    verbs: ["get", "list", "watch"]
+{{- end }}
+`
+
+const ClusterRoleBindingTemplate = `{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kgen.fullname" . }}-clusterrolebinding
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kgen.fullname" . }}-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kgen.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+`
+
+const PriorityClassTemplate = `{{- if .Values.priorityClass.enabled -}}
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ include "kgen.fullname" . }}-priority
+value: 1000000
+globalDefault: false
+description: "KGen generated PriorityClass"
+{{- end }}
+`
+
+const PodMonitorTemplate = `{{- if .Values.podMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kgen.selectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+    - port: http
+      interval: 30s
+{{- end }}
+`
+
+const PrometheusRuleTemplate = `{{- if .Values.prometheusRule.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "kgen.fullname" . }}-rules
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: {{ .Chart.Name }}.rules
+      rules:
+        - alert: DeploymentReplicasMismatch
+          expr: kube_deployment_spec_replicas{deployment="{{ include "kgen.fullname" . }}"} != kube_deployment_status_replicas_available{deployment="{{ include "kgen.fullname" . }}"}
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Deployment replicas mismatch for {{ include "kgen.fullname" . }}
+{{- end }}
+`
+
+const GrafanaDashboardTemplate = `{{- if .Values.grafanaDashboard.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kgen.fullname" . }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    grafana_dashboard: "1"
+data:
+  {{ .Chart.Name }}-dashboard.json: |
+    {
+      "title": "{{ .Chart.Name }} Dashboard",
+      "panels": []
+    }
+{{- end }}
+`
+
+const ArgoApplicationSetTemplate = `{{- if .Values.argocd.enabled -}}
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - cluster: engineering-dev
+            url: https://kubernetes.default.svc
+  template:
+    metadata:
+      name: '{{ "{" }}{{ "{" }}cluster{{ "}" }}{{ "}" }}-{{ include "kgen.fullname" . }}'
+    spec:
+      project: {{ .Values.argocd.project | quote }}
+      source:
+        repoURL: {{ .Values.argocd.repoURL | quote }}
+        targetRevision: {{ .Values.argocd.targetRevision | quote }}
+        path: {{ .Values.argocd.path | quote }}
+      destination:
+        server: '{{ "{" }}{{ "{" }}url{{ "}" }}{{ "}" }}'
+        namespace: {{ .Release.Namespace }}
+{{- end }}
+`
+
+const FluxHelmReleaseTemplate = `{{- if .Values.flux.enabled -}}
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: {{ .Chart.Name }}
+      version: {{ .Chart.Version }}
+      sourceRef:
+        kind: HelmRepository
+        name: {{ include "kgen.fullname" . }}
+        namespace: {{ .Release.Namespace }}
+  values:
+    replicaCount: {{ .Values.replicaCount }}
+{{- end }}
+`
+
+const FluxKustomizationTemplate = `{{- if .Values.flux.enabled -}}
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  interval: 5m
+  path: "./deploy"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: {{ include "kgen.fullname" . }}
 {{- end }}
 `

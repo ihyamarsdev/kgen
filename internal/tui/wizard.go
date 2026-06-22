@@ -19,6 +19,12 @@ const (
 	StepMode
 	StepQuality
 	StepCustomResources
+	StepStatefulSetStorage
+	StepStorageClassInfo
+	StepServiceAccountInfo
+	StepRbacLevel
+	StepIngressTls
+	StepNetworkPolicyPreset
 	StepSecretBackend
 	StepConfirm
 	StepDone
@@ -49,10 +55,95 @@ const (
 	BackendAzure
 )
 
+type TuiState int
+
+const (
+	StateCategories TuiState = iota
+	StateCategoryResources
+)
+
+type RbacState int
+
+const (
+	StateRbacLevel RbacState = iota
+	StateRbacResources
+)
+
+// Categories and Items from PRD
+var Categories = []string{
+	"Workloads",
+	"Storage",
+	"Identity & RBAC",
+	"Networking",
+	"Scaling & Reliability",
+	"Secrets & Configuration",
+	"Monitoring",
+	"GitOps",
+}
+
+var CategoryItems = map[string][]string{
+	"Workloads": {
+		"Deployment",
+		"StatefulSet",
+		"DaemonSet",
+		"Job",
+		"CronJob",
+	},
+	"Storage": {
+		"PersistentVolumeClaim",
+		"StorageClass Reference",
+		"CSI Volume",
+	},
+	"Identity & RBAC": {
+		"ServiceAccount",
+		"Role",
+		"RoleBinding",
+		"ClusterRole",
+		"ClusterRoleBinding",
+	},
+	"Networking": {
+		"Service",
+		"Ingress",
+		"Gateway API",
+		"NetworkPolicy",
+	},
+	"Scaling & Reliability": {
+		"HPA",
+		"VPA",
+		"KEDA",
+		"PDB",
+		"Pod Anti Affinity",
+		"Topology Spread Constraints",
+		"Priority Class",
+	},
+	"Secrets & Configuration": {
+		"ConfigMap",
+		"Secret",
+		"ExternalSecret",
+		"SealedSecret",
+	},
+	"Monitoring": {
+		"ServiceMonitor",
+		"PodMonitor",
+		"PrometheusRule",
+		"GrafanaDashboard",
+	},
+	"GitOps": {
+		"ArgoCD Application",
+		"ArgoCD ApplicationSet",
+		"Flux HelmRelease",
+		"Flux Kustomization",
+	},
+}
+
 type WizardModel struct {
 	Step        Step
 	Profile     string
 	OutputDir   string
+
+	// Navigation Queue
+	ActiveSteps      []Step
+	CurrentStepIndex int
 
 	// Step 1: Inputs
 	Inputs      []textinput.Model
@@ -64,12 +155,40 @@ type WizardModel struct {
 	// Step 2.5: Template Quality
 	SelectedQuality Quality
 
-	// Step 3: Custom checkboxes
-	Resources   []string
-	SelectedRes map[string]bool
-	ResCursor   int
+	// Step 3: Custom checklist (Categories & Items)
+	TuiState         TuiState
+	SelectedCategory int
+	SubResCursor     int
+	Resources        []string
+	SelectedRes      map[string]bool
 
-	// Step 3.5: Secret Backend
+	// Step: StatefulSet Storage Option
+	SelectedStatefulSetStorage int // 0: Create PVC, 1: Existing PVC
+
+	// Step: StorageClass / PVC Info
+	StorageInputs      []textinput.Model
+	ActiveStorageInput int
+	SelectedAccessMode int // 0: ReadWriteOnce, 1: ReadWriteMany
+
+	// Step: ServiceAccount Dedicated
+	ServiceAccountCreate int // 0: Yes, 1: No
+	SaNameInput          textinput.Model
+
+	// Step: RBAC Presets
+	SelectedRbacLevel   int // 0: Read Only, 1: Namespace Admin, 2: Custom
+	RbacResources       []string
+	SelectedRbacRes     map[string]bool
+	RbacCursor          int
+	RbacState           RbacState
+
+	// Step: Ingress TLS suggested
+	IngressTlsCreate   int // 0: Yes, 1: No
+	IngressTlsProvider int // 0: cert-manager, 1: Existing Secret
+
+	// Step: NetworkPolicy Preset
+	SelectedNetPolPreset int // 0: Default Deny, 1: Allow Namespace Only, 2: Custom
+
+	// Step: ExternalSecret backend
 	SelectedBackend Backend
 
 	// Confirmation button focus (0: Generate, 1: Cancel)
@@ -88,77 +207,103 @@ func InitialModel(profile string, defaultAppName string) WizardModel {
 		SelectedMode:    ModeSimple,
 		SelectedQuality: QualityProduction, // default
 		SelectedBackend: BackendVault,      // default
-		Resources: []string{
-			"Deployment",
-			"Service",
-			"Ingress",
-			"Gateway API",
-			"ConfigMap",
-			"Secret",
-			"ExternalSecret",
-			"SealedSecret",
-			"HPA",
-			"ServiceMonitor",
-			"PDB",
-			"VPA",
-			"KEDA",
-			"StatefulSet",
-			"CronJob",
-			"ArgoCD Application",
-			"Istio VirtualService",
-		},
-		SelectedRes: map[string]bool{
-			"Deployment": true,
-			"Service":    true,
-		},
-		ResCursor:     0,
-		ConfirmCursor: 0,
+		TuiState:        StateCategories,
+		SelectedRes:     map[string]bool{},
+		ConfirmCursor:   0,
 	}
 
+	// Initialize checklist selections to false
+	for _, items := range CategoryItems {
+		for _, it := range items {
+			m.SelectedRes[it] = false
+		}
+	}
+
+	// Preset for Simple / Advanced
 	if profile == "prod" {
 		m.SelectedMode = ModeAdvanced
 		m.SelectedQuality = QualityProduction
+		m.SelectedRes["Deployment"] = true
+		m.SelectedRes["Service"] = true
 		m.SelectedRes["Ingress"] = true
 		m.SelectedRes["HPA"] = true
 		m.SelectedRes["PDB"] = true
 		m.SelectedRes["ServiceMonitor"] = true
 	} else {
+		m.SelectedRes["Deployment"] = true
+		m.SelectedRes["Service"] = true
 		m.SelectedQuality = QualityBasic
 	}
 
 	// Initialize inputs
 	m.Inputs = make([]textinput.Model, 4)
 
-	// App Name
 	m.Inputs[0] = textinput.New()
 	m.Inputs[0].Placeholder = "my-app"
 	m.Inputs[0].SetValue(defaultAppName)
 	m.Inputs[0].Focus()
 	m.Inputs[0].PromptStyle = ActiveInputStyle
 
-	// Namespace
 	m.Inputs[1] = textinput.New()
 	m.Inputs[1].Placeholder = "default"
 	m.Inputs[1].SetValue("default")
 	m.Inputs[1].PromptStyle = InactiveInputStyle
 
-	// Container Image
 	m.Inputs[2] = textinput.New()
 	m.Inputs[2].Placeholder = "nginx:latest"
 	m.Inputs[2].SetValue("nginx:latest")
 	m.Inputs[2].PromptStyle = InactiveInputStyle
 
-	// Container Port
 	m.Inputs[3] = textinput.New()
 	m.Inputs[3].Placeholder = "80"
 	m.Inputs[3].SetValue("80")
 	m.Inputs[3].PromptStyle = InactiveInputStyle
+
+	// Initialize Storage inputs
+	m.StorageInputs = make([]textinput.Model, 2)
+	m.StorageInputs[0] = textinput.New()
+	m.StorageInputs[0].Placeholder = "standard"
+	m.StorageInputs[0].SetValue("standard")
+	m.StorageInputs[0].PromptStyle = InactiveInputStyle
+
+	m.StorageInputs[1] = textinput.New()
+	m.StorageInputs[1].Placeholder = "10Gi"
+	m.StorageInputs[1].SetValue("10Gi")
+	m.StorageInputs[1].PromptStyle = InactiveInputStyle
+
+	// Initialize ServiceAccount input
+	m.SaNameInput = textinput.New()
+	m.SaNameInput.Placeholder = defaultAppName
+	m.SaNameInput.SetValue(defaultAppName)
+	m.SaNameInput.PromptStyle = InactiveInputStyle
+
+	// Initialize Rbac checklist
+	m.RbacResources = []string{"ConfigMaps", "Secrets", "Pods", "Deployments"}
+	m.SelectedRbacRes = map[string]bool{"ConfigMaps": true, "Secrets": true, "Pods": true}
+
+	// Build default initial steps
+	m.ActiveSteps = []Step{StepAppInfo, StepMode}
+	m.CurrentStepIndex = 0
 
 	return m
 }
 
 func (m *WizardModel) Init() tea.Cmd {
 	return textinput.Blink
+}
+
+func (m *WizardModel) advanceStep() {
+	if m.CurrentStepIndex < len(m.ActiveSteps)-1 {
+		m.CurrentStepIndex++
+		m.Step = m.ActiveSteps[m.CurrentStepIndex]
+	}
+}
+
+func (m *WizardModel) regressStep() {
+	if m.CurrentStepIndex > 0 {
+		m.CurrentStepIndex--
+		m.Step = m.ActiveSteps[m.CurrentStepIndex]
+	}
 }
 
 func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -175,27 +320,18 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "esc":
+			if m.Step == StepCustomResources && m.TuiState == StateCategoryResources {
+				// Escape category items back to categories list
+				m.TuiState = StateCategories
+				return m, nil
+			}
+			if m.Step == StepRbacLevel && m.RbacState == StateRbacResources {
+				m.RbacState = StateRbacLevel
+				return m, nil
+			}
+
 			if m.Step > StepAppInfo {
-				switch m.Step {
-				case StepMode:
-					m.Step = StepAppInfo
-				case StepQuality:
-					m.Step = StepMode
-				case StepCustomResources:
-					m.Step = StepMode
-				case StepSecretBackend:
-					m.Step = StepCustomResources
-				case StepConfirm:
-					if m.SelectedMode == ModeCustom {
-						if m.SelectedRes["ExternalSecret"] {
-							m.Step = StepSecretBackend
-						} else {
-							m.Step = StepCustomResources
-						}
-					} else {
-						m.Step = StepQuality
-					}
-				}
+				m.regressStep()
 				return m, nil
 			}
 			m.Quitted = true
@@ -219,6 +355,18 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateQuality(msg)
 	case StepCustomResources:
 		return m.updateCustomResources(msg)
+	case StepStatefulSetStorage:
+		return m.updateStatefulSetStorage(msg)
+	case StepStorageClassInfo:
+		return m.updateStorageClassInfo(msg)
+	case StepServiceAccountInfo:
+		return m.updateServiceAccountInfo(msg)
+	case StepRbacLevel:
+		return m.updateRbacLevel(msg)
+	case StepIngressTls:
+		return m.updateIngressTls(msg)
+	case StepNetworkPolicyPreset:
+		return m.updateNetworkPolicyPreset(msg)
 	case StepSecretBackend:
 		return m.updateSecretBackend(msg)
 	case StepConfirm:
@@ -238,6 +386,8 @@ func (m *WizardModel) updateAppInfo(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if appName == "" {
 					m.Inputs[0].SetValue("my-app")
 				}
+				m.ActiveSteps = []Step{StepAppInfo, StepMode}
+				m.CurrentStepIndex = 1
 				m.Step = StepMode
 				return m, nil
 			}
@@ -292,8 +442,12 @@ func (m *WizardModel) updateMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			if m.SelectedMode == ModeCustom {
+				m.ActiveSteps = []Step{StepAppInfo, StepMode, StepCustomResources}
+				m.CurrentStepIndex = 2
 				m.Step = StepCustomResources
 			} else {
+				m.ActiveSteps = []Step{StepAppInfo, StepMode, StepQuality, StepConfirm}
+				m.CurrentStepIndex = 2
 				m.Step = StepQuality
 			}
 		}
@@ -320,73 +474,345 @@ func (m *WizardModel) updateQuality(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			if m.SelectedMode == ModeCustom {
-				m.Step = StepCustomResources
-			} else {
-				if m.SelectedMode == ModeSimple {
-					m.SelectedRes = map[string]bool{
-						"Deployment": true,
-						"Service":    true,
-					}
-				} else if m.SelectedMode == ModeAdvanced {
-					m.SelectedRes = map[string]bool{
-						"Deployment":     true,
-						"Service":        true,
-						"Ingress":        true,
-						"HPA":            true,
-						"PDB":            true,
-						"ServiceMonitor": true,
-					}
+			// Set defaults based on simple/advanced mode
+			if m.SelectedMode == ModeSimple {
+				m.SelectedRes = map[string]bool{
+					"Deployment": true,
+					"Service":    true,
 				}
-				m.Step = StepConfirm
+			} else if m.SelectedMode == ModeAdvanced {
+				m.SelectedRes = map[string]bool{
+					"Deployment":     true,
+					"Service":        true,
+					"Ingress":        true,
+					"HPA":            true,
+					"PDB":            true,
+					"ServiceMonitor": true,
+					"NetworkPolicy":  true,
+				}
 			}
+			m.advanceStep()
 		}
 	}
 	return m, nil
 }
 
 func (m *WizardModel) updateCustomResources(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.TuiState == StateCategories {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "up", "k":
+				if m.SelectedCategory > 0 {
+					m.SelectedCategory--
+				} else {
+					m.SelectedCategory = len(Categories) // Index of [ Continue ]
+				}
+
+			case "down", "j":
+				if m.SelectedCategory < len(Categories) {
+					m.SelectedCategory++
+				} else {
+					m.SelectedCategory = 0
+				}
+
+			case "enter":
+				if m.SelectedCategory == len(Categories) {
+					// User clicked [ Continue to Confirm ].
+					// Build the dynamic steps based on what was selected!
+					m.ActiveSteps = []Step{StepAppInfo, StepMode, StepCustomResources}
+					if m.SelectedRes["StatefulSet"] {
+						m.ActiveSteps = append(m.ActiveSteps, StepStatefulSetStorage)
+					}
+					if m.SelectedRes["PersistentVolumeClaim"] {
+						m.ActiveSteps = append(m.ActiveSteps, StepStorageClassInfo)
+					}
+					if m.SelectedRes["ServiceAccount"] {
+						m.ActiveSteps = append(m.ActiveSteps, StepServiceAccountInfo)
+					}
+					if m.SelectedRes["Role"] || m.SelectedRes["RoleBinding"] || m.SelectedRes["ClusterRole"] || m.SelectedRes["ClusterRoleBinding"] {
+						m.ActiveSteps = append(m.ActiveSteps, StepRbacLevel)
+					}
+					if m.SelectedRes["Ingress"] {
+						m.ActiveSteps = append(m.ActiveSteps, StepIngressTls)
+					}
+					if m.SelectedRes["NetworkPolicy"] {
+						m.ActiveSteps = append(m.ActiveSteps, StepNetworkPolicyPreset)
+					}
+					if m.SelectedRes["ExternalSecret"] {
+						m.ActiveSteps = append(m.ActiveSteps, StepSecretBackend)
+					}
+					m.ActiveSteps = append(m.ActiveSteps, StepConfirm)
+					m.CurrentStepIndex = 2
+					m.advanceStep()
+				} else {
+					m.TuiState = StateCategoryResources
+					m.SubResCursor = 0
+				}
+			}
+		}
+	} else {
+		// Category item Checklist TUI
+		currentCat := Categories[m.SelectedCategory]
+		items := CategoryItems[currentCat]
+
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "up", "k":
+				if m.SubResCursor > 0 {
+					m.SubResCursor--
+				} else {
+					m.SubResCursor = len(items) - 1
+				}
+
+			case "down", "j":
+				if m.SubResCursor < len(items)-1 {
+					m.SubResCursor++
+				} else {
+					m.SubResCursor = 0
+				}
+
+			case " ":
+				it := items[m.SubResCursor]
+				m.SelectedRes[it] = !m.SelectedRes[it]
+
+				// Smart Dependency Engine
+				if it == "ServiceMonitor" && m.SelectedRes["ServiceMonitor"] {
+					m.SelectedRes["Service"] = true
+				}
+				if it == "Service" && !m.SelectedRes["Service"] {
+					m.SelectedRes["ServiceMonitor"] = false
+				}
+				if it == "StatefulSet" && m.SelectedRes["StatefulSet"] {
+					m.SelectedRes["PersistentVolumeClaim"] = true
+				}
+				if it == "StatefulSet" && !m.SelectedRes["StatefulSet"] {
+					m.SelectedRes["PersistentVolumeClaim"] = false
+				}
+				if it == "RoleBinding" && m.SelectedRes["RoleBinding"] {
+					m.SelectedRes["Role"] = true
+					m.SelectedRes["ServiceAccount"] = true
+				}
+				if it == "ClusterRoleBinding" && m.SelectedRes["ClusterRoleBinding"] {
+					m.SelectedRes["ClusterRole"] = true
+					m.SelectedRes["ServiceAccount"] = true
+				}
+
+			case "enter":
+				m.TuiState = StateCategories
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m *WizardModel) updateStatefulSetStorage(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k", "down", "j":
+			m.SelectedStatefulSetStorage = 1 - m.SelectedStatefulSetStorage
+
+		case "enter":
+			if m.SelectedStatefulSetStorage == 0 {
+				m.SelectedRes["PersistentVolumeClaim"] = true
+			} else {
+				m.SelectedRes["PersistentVolumeClaim"] = false
+			}
+			m.advanceStep()
+		}
+	}
+	return m, nil
+}
+
+func (m *WizardModel) updateStorageClassInfo(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			if m.ActiveStorageInput == 1 {
+				m.advanceStep()
+				return m, nil
+			}
+			m.nextStorageInput()
+
+		case "up", "shift+tab":
+			m.prevStorageInput()
+
+		case "down", "tab":
+			m.nextStorageInput()
+
+		case "left", "right", "h", "l":
+			if m.ActiveStorageInput == 2 {
+				m.SelectedAccessMode = 1 - m.SelectedAccessMode
+			}
+		}
+	}
+
+	var cmd tea.Cmd
+	if m.ActiveStorageInput < 2 {
+		m.StorageInputs[m.ActiveStorageInput], cmd = m.StorageInputs[m.ActiveStorageInput].Update(msg)
+	}
+	return m, cmd
+}
+
+func (m *WizardModel) nextStorageInput() {
+	if m.ActiveStorageInput < 2 {
+		m.StorageInputs[m.ActiveStorageInput].Blur()
+		m.StorageInputs[m.ActiveStorageInput].PromptStyle = InactiveInputStyle
+	}
+	m.ActiveStorageInput = (m.ActiveStorageInput + 1) % 3
+	if m.ActiveStorageInput < 2 {
+		m.StorageInputs[m.ActiveStorageInput].Focus()
+		m.StorageInputs[m.ActiveStorageInput].PromptStyle = ActiveInputStyle
+	}
+}
+
+func (m *WizardModel) prevStorageInput() {
+	if m.ActiveStorageInput < 2 {
+		m.StorageInputs[m.ActiveStorageInput].Blur()
+		m.StorageInputs[m.ActiveStorageInput].PromptStyle = InactiveInputStyle
+	}
+	m.ActiveStorageInput = (m.ActiveStorageInput - 1 + 3) % 3
+	if m.ActiveStorageInput < 2 {
+		m.StorageInputs[m.ActiveStorageInput].Focus()
+		m.StorageInputs[m.ActiveStorageInput].PromptStyle = ActiveInputStyle
+	}
+}
+
+func (m *WizardModel) updateServiceAccountInfo(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k", "down", "j":
+			m.ServiceAccountCreate = 1 - m.ServiceAccountCreate
+
+		case "enter":
+			if m.ServiceAccountCreate == 1 { // No
+				m.advanceStep()
+				return m, nil
+			}
+			// Focus input if Yes
+			if !m.SaNameInput.Focused() {
+				m.SaNameInput.Focus()
+				m.SaNameInput.PromptStyle = ActiveInputStyle
+				return m, nil
+			}
+			m.advanceStep()
+		}
+	}
+
+	var cmd tea.Cmd
+	if m.ServiceAccountCreate == 0 && m.SaNameInput.Focused() {
+		m.SaNameInput, cmd = m.SaNameInput.Update(msg)
+	}
+	return m, cmd
+}
+
+func (m *WizardModel) updateRbacLevel(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.RbacState == StateRbacLevel {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "up", "k":
+				if m.SelectedRbacLevel > 0 {
+					m.SelectedRbacLevel--
+				} else {
+					m.SelectedRbacLevel = 2
+				}
+
+			case "down", "j":
+				if m.SelectedRbacLevel < 2 {
+					m.SelectedRbacLevel++
+				} else {
+					m.SelectedRbacLevel = 0
+				}
+
+			case "enter":
+				if m.SelectedRbacLevel == 2 {
+					m.RbacState = StateRbacResources
+					m.RbacCursor = 0
+				} else {
+					m.advanceStep()
+				}
+			}
+		}
+	} else {
+		// Custom RBAC resource select TUI
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "up", "k":
+				if m.RbacCursor > 0 {
+					m.RbacCursor--
+				} else {
+					m.RbacCursor = len(m.RbacResources) - 1
+				}
+
+			case "down", "j":
+				if m.RbacCursor < len(m.RbacResources)-1 {
+					m.RbacCursor++
+				} else {
+					m.RbacCursor = 0
+				}
+
+			case " ":
+				res := m.RbacResources[m.RbacCursor]
+				m.SelectedRbacRes[res] = !m.SelectedRbacRes[res]
+
+			case "enter":
+				m.advanceStep()
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m *WizardModel) updateIngressTls(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k", "down", "j":
+			m.IngressTlsCreate = 1 - m.IngressTlsCreate
+
+		case "left", "right", "h", "l":
+			if m.IngressTlsCreate == 0 {
+				m.IngressTlsProvider = 1 - m.IngressTlsProvider
+			}
+
+		case "enter":
+			if m.IngressTlsCreate == 1 { // No
+				m.advanceStep()
+				return m, nil
+			}
+			// If Yes, choose provider step
+			m.advanceStep()
+		}
+	}
+	return m, nil
+}
+
+func (m *WizardModel) updateNetworkPolicyPreset(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":
-			if m.ResCursor > 0 {
-				m.ResCursor--
+			if m.SelectedNetPolPreset > 0 {
+				m.SelectedNetPolPreset--
 			} else {
-				m.ResCursor = len(m.Resources) - 1
+				m.SelectedNetPolPreset = 2
 			}
 
 		case "down", "j":
-			if m.ResCursor < len(m.Resources)-1 {
-				m.ResCursor++
+			if m.SelectedNetPolPreset < 2 {
+				m.SelectedNetPolPreset++
 			} else {
-				m.ResCursor = 0
-			}
-
-		case " ":
-			res := m.Resources[m.ResCursor]
-			m.SelectedRes[res] = !m.SelectedRes[res]
-
-			// Smart Dependency Engine
-			if res == "ServiceMonitor" && m.SelectedRes["ServiceMonitor"] {
-				m.SelectedRes["Service"] = true
-			}
-			if res == "Service" && !m.SelectedRes["Service"] {
-				m.SelectedRes["ServiceMonitor"] = false
-			}
-			if res == "StatefulSet" && m.SelectedRes["StatefulSet"] {
-				m.SelectedRes["PVC"] = true
-			}
-			if res == "StatefulSet" && !m.SelectedRes["StatefulSet"] {
-				m.SelectedRes["PVC"] = false
+				m.SelectedNetPolPreset = 0
 			}
 
 		case "enter":
-			if m.SelectedRes["ExternalSecret"] {
-				m.Step = StepSecretBackend
-			} else {
-				m.Step = StepConfirm
-			}
+			m.advanceStep()
 		}
 	}
 	return m, nil
@@ -411,7 +837,7 @@ func (m *WizardModel) updateSecretBackend(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			m.Step = StepConfirm
+			m.advanceStep()
 		}
 	}
 	return m, nil
@@ -451,9 +877,9 @@ func (m *WizardModel) View() string {
 		shortcuts := []struct {
 			keys, desc string
 		}{
-			{"Tab / Shift+Tab", "Navigate text inputs (Step 1)"},
+			{"Tab / Shift+Tab", "Navigate text inputs"},
 			{"Up / Down (k / j)", "Navigate through list options"},
-			{"Space", "Toggle checklist selection (Step 3)"},
+			{"Space", "Toggle checklist selection"},
 			{"Enter", "Advance to next step or confirm actions"},
 			{"Esc", "Go back to the previous step (or exit on Step 1)"},
 			{"?", "Toggle this help menu"},
@@ -471,11 +897,9 @@ func (m *WizardModel) View() string {
 
 	var sb strings.Builder
 
-	// Header banner
 	sb.WriteString(TitleStyle.Render(" KGen — Helm Chart Generator "))
 	sb.WriteString("\n")
 
-	// Progress indicator
 	sb.WriteString(m.renderProgress())
 	sb.WriteString("\n\n")
 
@@ -499,9 +923,9 @@ func (m *WizardModel) View() string {
 		modes := []struct {
 			name, desc string
 		}{
-			{"Simple", "Generates Deployment and Service (ideal for dev/testing)"},
-			{"Advanced", "Generates Deployment, Service, Ingress, and HPA (production-ready)"},
-			{"Custom", "Pick resources individually"},
+			{"Simple", "Generates Deployment and Service (dev/testing)"},
+			{"Advanced", "Generates Deployment, Service, Ingress, HPA, PDB, ServiceMonitor, NetPol"},
+			{"Custom", "Pick resources categorised individually"},
 		}
 
 		for i, mode := range modes {
@@ -538,32 +962,230 @@ func (m *WizardModel) View() string {
 		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to select. Esc to go back. (Press '?' for help)"))
 
 	case StepCustomResources:
-		sb.WriteString(HeaderStyle.Render("Step 3: Select Resources to Generate"))
-		sb.WriteString("\n")
-		for i, res := range m.Resources {
+		if m.TuiState == StateCategories {
+			sb.WriteString(HeaderStyle.Render("Step 3: Select Resource Categories"))
+			sb.WriteString("\n")
+			for i, cat := range Categories {
+				cursor := "  "
+				catStyle := lipgloss.NewStyle().Foreground(White)
+				if m.SelectedCategory == i {
+					cursor = ActiveInputStyle.Render("> ")
+					catStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+				}
+				selectedCount := 0
+				items := CategoryItems[cat]
+				for _, it := range items {
+					if m.SelectedRes[it] {
+						selectedCount++
+					}
+				}
+				countStr := fmt.Sprintf("(%d/%d selected)", selectedCount, len(items))
+				sb.WriteString(fmt.Sprintf("%s%-24s %s\n", cursor, catStyle.Render(cat), GrayStyle.Render(countStr)))
+			}
+
 			cursor := "  "
-			resStyle := lipgloss.NewStyle().Foreground(White)
-			if m.ResCursor == i {
+			btnStyle := NormalButton
+			if m.SelectedCategory == len(Categories) {
 				cursor = ActiveInputStyle.Render("> ")
-				resStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+				btnStyle = FocusedButton
+			}
+			sb.WriteString("\n" + cursor + btnStyle.Render("Continue to Confirm") + "\n")
+			sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to inspect/edit category. Esc to go back. (Press '?' for help)"))
+		} else {
+			currentCat := Categories[m.SelectedCategory]
+			sb.WriteString(HeaderStyle.Render(fmt.Sprintf("Step 3: Select %s Resources", currentCat)))
+			sb.WriteString("\n")
+			items := CategoryItems[currentCat]
+			for i, it := range items {
+				cursor := "  "
+				itStyle := lipgloss.NewStyle().Foreground(White)
+				if m.SubResCursor == i {
+					cursor = ActiveInputStyle.Render("> ")
+					itStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+				}
+
+				checked := " "
+				if m.SelectedRes[it] {
+					checked = CheckboxChecked.Render("✓")
+				} else {
+					checked = CheckboxUnchecked.Render(" ")
+				}
+
+				sb.WriteString(fmt.Sprintf("%s[%s] %s\n", cursor, checked, itStyle.Render(it)))
+			}
+			sb.WriteString(HelpStyle.Render("Use up/down to navigate. Space to toggle. Enter/Esc to return to Categories."))
+		}
+
+	case StepStatefulSetStorage:
+		sb.WriteString(HeaderStyle.Render("Step 3.1: StatefulSet Storage Settings"))
+		sb.WriteString("\n")
+		sb.WriteString("Persistent Storage Required?\n\n")
+
+		opts := []string{"Create PVC", "Existing PVC"}
+		for i, opt := range opts {
+			cursor := "  "
+			optStyle := lipgloss.NewStyle().Foreground(White)
+			if m.SelectedStatefulSetStorage == i {
+				cursor = ActiveInputStyle.Render("> ")
+				optStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+			}
+			sb.WriteString(fmt.Sprintf("%s%s\n", cursor, optStyle.Render(opt)))
+		}
+		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to select. Esc to go back."))
+
+	case StepStorageClassInfo:
+		sb.WriteString(HeaderStyle.Render("Step 3.2: Configure PVC / Storage settings"))
+		sb.WriteString("\n")
+
+		labels := []string{"Storage Class Name :", "PVC Size           :"}
+		for i, input := range m.StorageInputs {
+			prefix := "  "
+			if i == m.ActiveStorageInput {
+				prefix = ActiveInputStyle.Render("> ")
+			}
+			sb.WriteString(fmt.Sprintf("%s%s %s\n", prefix, labels[i], input.View()))
+		}
+
+		// Access Mode radio
+		prefix := "  "
+		if m.ActiveStorageInput == 2 {
+			prefix = ActiveInputStyle.Render("> ")
+		}
+		modeStr := "ReadWriteOnce"
+		if m.SelectedAccessMode == 1 {
+			modeStr = "ReadWriteMany"
+		}
+		sb.WriteString(fmt.Sprintf("%sAccess Mode        : %s (Press left/right to toggle)\n", prefix, ActiveInputStyle.Render(modeStr)))
+
+		sb.WriteString(HelpStyle.Render("Use up/down or tab to navigate. Left/right to toggle mode. Enter to continue."))
+
+	case StepServiceAccountInfo:
+		sb.WriteString(HeaderStyle.Render("Step 3.3: Configure Dedicated ServiceAccount"))
+		sb.WriteString("\n")
+		sb.WriteString("Create Dedicated ServiceAccount?\n\n")
+
+		opts := []string{"Yes", "No"}
+		for i, opt := range opts {
+			cursor := "  "
+			optStyle := lipgloss.NewStyle().Foreground(White)
+			if m.ServiceAccountCreate == i {
+				cursor = ActiveInputStyle.Render("> ")
+				optStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+			}
+			sb.WriteString(fmt.Sprintf("%s%s\n", cursor, optStyle.Render(opt)))
+		}
+
+		if m.ServiceAccountCreate == 0 {
+			sb.WriteString("\n  ServiceAccount Name: " + m.SaNameInput.View() + "\n")
+		}
+		sb.WriteString(HelpStyle.Render("Use up/down to select option. Enter to confirm. Esc to go back."))
+
+	case StepRbacLevel:
+		if m.RbacState == StateRbacLevel {
+			sb.WriteString(HeaderStyle.Render("Step 3.4: Configure RBAC Authorization"))
+			sb.WriteString("\n")
+			sb.WriteString("Select RBAC level:\n\n")
+
+			levels := []struct {
+				name, desc string
+			}{
+				{"Read Only", "Access to pods, configmaps, and secrets (read-only)"},
+				{"Namespace Admin", "Full admin permissions inside the namespace"},
+				{"Custom", "Pick custom resource list"},
 			}
 
-			checked := " "
-			if m.SelectedRes[res] {
-				checked = CheckboxChecked.Render("✓")
-			} else {
-				checked = CheckboxUnchecked.Render(" ")
+			for i, lvl := range levels {
+				cursor := "  "
+				lvlStyle := lipgloss.NewStyle().Foreground(White)
+				if m.SelectedRbacLevel == i {
+					cursor = ActiveInputStyle.Render("> ")
+					lvlStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+				}
+				sb.WriteString(fmt.Sprintf("%s%-18s : %s\n", cursor, lvlStyle.Render(lvl.name), GrayStyle.Render(lvl.desc)))
 			}
+			sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to select. Esc to go back."))
+		} else {
+			sb.WriteString(HeaderStyle.Render("Step 3.4: Select allowed RBAC Resources"))
+			sb.WriteString("\n")
 
-			sb.WriteString(fmt.Sprintf("%s[%s] %s\n", cursor, checked, resStyle.Render(res)))
+			for i, r := range m.RbacResources {
+				cursor := "  "
+				rStyle := lipgloss.NewStyle().Foreground(White)
+				if m.RbacCursor == i {
+					cursor = ActiveInputStyle.Render("> ")
+					rStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+				}
+
+				checked := " "
+				if m.SelectedRbacRes[r] {
+					checked = CheckboxChecked.Render("✓")
+				} else {
+					checked = CheckboxUnchecked.Render(" ")
+				}
+
+				sb.WriteString(fmt.Sprintf("%s[%s] %s\n", cursor, checked, rStyle.Render(r)))
+			}
+			sb.WriteString(HelpStyle.Render("Use up/down to navigate. Space to toggle. Enter to confirm. Esc to go back."))
 		}
-		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Space to select/deselect. Enter to confirm. Esc to go back. (Press '?' for help)"))
-		if m.SelectedRes["HPA"] {
-			sb.WriteString("\n" + lipgloss.NewStyle().Foreground(Magenta).Italic(true).Render("  💡 HPA requires Resource Requests (Production/Enterprise Quality) to function correctly."))
+
+	case StepIngressTls:
+		sb.WriteString(HeaderStyle.Render("Step 3.5: Ingress TLS settings"))
+		sb.WriteString("\n")
+		sb.WriteString("Suggested: TLS Certificate. Use TLS Certificate?\n\n")
+
+		opts := []string{"Yes", "No"}
+		for i, opt := range opts {
+			cursor := "  "
+			optStyle := lipgloss.NewStyle().Foreground(White)
+			if m.IngressTlsCreate == i {
+				cursor = ActiveInputStyle.Render("> ")
+				optStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+			}
+			sb.WriteString(fmt.Sprintf("%s%s\n", cursor, optStyle.Render(opt)))
 		}
+
+		if m.IngressTlsCreate == 0 {
+			sb.WriteString("\n  TLS Provider:\n")
+			providers := []string{"cert-manager", "Existing Secret"}
+			for i, p := range providers {
+				cursor := "    "
+				pStyle := lipgloss.NewStyle().Foreground(White)
+				if m.IngressTlsProvider == i {
+					cursor = ActiveInputStyle.Render("  > ")
+					pStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+				}
+				sb.WriteString(fmt.Sprintf("%s%s\n", cursor, pStyle.Render(p)))
+			}
+			sb.WriteString("\n" + HelpStyle.Render("Use left/right or h/l to toggle provider when Yes is active."))
+		}
+		sb.WriteString(HelpStyle.Render("Use up/down to select. Enter to confirm. Esc to go back."))
+
+	case StepNetworkPolicyPreset:
+		sb.WriteString(HeaderStyle.Render("Step 3.6: Configure NetworkPolicy"))
+		sb.WriteString("\n")
+		sb.WriteString("Select NetworkPolicy preset rules:\n\n")
+
+		presets := []struct {
+			name, desc string
+		}{
+			{"Default Deny", "Deny all incoming and outgoing traffic by default"},
+			{"Allow Namespace Only", "Allow traffic only from pods inside this namespace"},
+			{"Custom", "Standard HTTP port access and egress allowed"},
+		}
+
+		for i, p := range presets {
+			cursor := "  "
+			pStyle := lipgloss.NewStyle().Foreground(White)
+			if m.SelectedNetPolPreset == i {
+				cursor = ActiveInputStyle.Render("> ")
+				pStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+			}
+			sb.WriteString(fmt.Sprintf("%s%-24s : %s\n", cursor, pStyle.Render(p.name), GrayStyle.Render(p.desc)))
+		}
+		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to select. Esc to go back."))
 
 	case StepSecretBackend:
-		sb.WriteString(HeaderStyle.Render("Step 3.5: Choose Secret Backend for ExternalSecret"))
+		sb.WriteString(HeaderStyle.Render("Step 3.7: Choose Secret Backend for ExternalSecret"))
 		sb.WriteString("\n")
 		backends := []string{
 			"Vault",
@@ -588,9 +1210,11 @@ func (m *WizardModel) View() string {
 		sb.WriteString("\n")
 
 		var resList []string
-		for _, r := range m.Resources {
-			if m.SelectedRes[r] {
-				resList = append(resList, r)
+		for _, cat := range Categories {
+			for _, r := range CategoryItems[cat] {
+				if m.SelectedRes[r] {
+					resList = append(resList, r)
+				}
 			}
 		}
 
@@ -634,36 +1258,21 @@ func (m *WizardModel) View() string {
 }
 
 func (m *WizardModel) renderProgress() string {
-	var steps []string
-	var currentStepIndex int
+	steps := []string{"App Info", "Mode", "Resources", "Confirm"}
+	var rendered []string
 
-	if m.SelectedMode == ModeCustom {
-		steps = []string{"App Info", "Mode", "Resources", "Confirm"}
-		switch m.Step {
-		case StepAppInfo:
-			currentStepIndex = 0
-		case StepMode:
-			currentStepIndex = 1
-		case StepCustomResources, StepSecretBackend:
-			currentStepIndex = 2
-		case StepConfirm:
-			currentStepIndex = 3
-		}
-	} else {
-		steps = []string{"App Info", "Mode", "Quality", "Confirm"}
-		switch m.Step {
-		case StepAppInfo:
-			currentStepIndex = 0
-		case StepMode:
-			currentStepIndex = 1
-		case StepQuality:
-			currentStepIndex = 2
-		case StepConfirm:
-			currentStepIndex = 3
-		}
+	currentStepIndex := 0
+	switch m.Step {
+	case StepAppInfo:
+		currentStepIndex = 0
+	case StepMode:
+		currentStepIndex = 1
+	case StepQuality, StepCustomResources, StepStatefulSetStorage, StepStorageClassInfo, StepServiceAccountInfo, StepRbacLevel, StepIngressTls, StepNetworkPolicyPreset, StepSecretBackend:
+		currentStepIndex = 2
+	case StepConfirm:
+		currentStepIndex = 3
 	}
 
-	var rendered []string
 	for i, s := range steps {
 		if i == currentStepIndex {
 			rendered = append(rendered, StepStyle.Render(fmt.Sprintf("[%s]", s)))
@@ -697,6 +1306,27 @@ func (m *WizardModel) GetConfig() (generator.Config, string) {
 
 	var qualityNames = []string{"basic", "production", "enterprise"}
 	var backendNames = []string{"vault", "aws", "gcp", "azure"}
+	var rbacLevelNames = []string{"readonly", "admin", "custom"}
+	var netpolPresetNames = []string{"defaultdeny", "namespaceonly", "custom"}
+
+	// Extract Rbac Custom resources
+	var rbacCustomRes []string
+	if m.SelectedRbacLevel == 2 {
+		for r, checked := range m.SelectedRbacRes {
+			if checked {
+				rbacCustomRes = append(rbacCustomRes, strings.ToLower(r))
+			}
+		}
+	}
+
+	saName := ""
+	if m.SelectedRes["ServiceAccount"] {
+		if m.ServiceAccountCreate == 0 {
+			saName = m.SaNameInput.Value()
+		} else {
+			saName = "default"
+		}
+	}
 
 	cfg := generator.Config{
 		AppName:         m.Inputs[0].Value(),
@@ -714,25 +1344,68 @@ func (m *WizardModel) GetConfig() (generator.Config, string) {
 		TemplateQuality: qualityNames[m.SelectedQuality],
 		SecretBackend:   backendNames[m.SelectedBackend],
 
-		GenerateDeployment:     m.SelectedRes["Deployment"],
-		GenerateService:        m.SelectedRes["Service"],
-		GenerateIngress:        m.SelectedRes["Ingress"],
-		GenerateGateway:        m.SelectedRes["Gateway API"],
-		GenerateConfigMap:      m.SelectedRes["ConfigMap"],
-		GenerateSecret:         m.SelectedRes["Secret"],
-		GenerateExternalSecret: m.SelectedRes["ExternalSecret"],
-		GenerateSealedSecret:   m.SelectedRes["SealedSecret"],
-		GenerateHPA:            m.SelectedRes["HPA"],
-		GenerateServiceMonitor: m.SelectedRes["ServiceMonitor"],
-		GeneratePDB:            m.SelectedRes["PDB"],
-		GenerateVPA:            m.SelectedRes["VPA"],
-		GenerateKEDA:           m.SelectedRes["KEDA"],
-		GenerateStatefulSet:    m.SelectedRes["StatefulSet"],
-		GenerateCronJob:        m.SelectedRes["CronJob"],
-		GenerateArgoCD:         m.SelectedRes["ArgoCD Application"],
-		GenerateIstio:          m.SelectedRes["Istio VirtualService"],
-		GeneratePVC:            m.SelectedRes["PVC"],
-		GenerateNetworkPolicy:  m.SelectedRes["NetworkPolicy"] || (qualityNames[m.SelectedQuality] == "enterprise"),
+		// Storage Config
+		StorageClass:      m.StorageInputs[0].Value(),
+		StorageSize:       m.StorageInputs[1].Value(),
+		StorageAccessMode: "ReadWriteOnce",
+
+		// ServiceAccount Name
+		ServiceAccountName: saName,
+
+		// RBAC Level
+		RbacLevel:           rbacLevelNames[m.SelectedRbacLevel],
+		RbacCustomResources: rbacCustomRes,
+
+		// Ingress TLS
+		IngressTlsEnabled:  m.SelectedRes["Ingress"] && m.IngressTlsCreate == 0,
+		IngressTlsProvider: "cert-manager",
+
+		// NetworkPolicy Preset
+		NetworkPolicyPreset: netpolPresetNames[m.SelectedNetPolPreset],
+
+		// File generation toggles
+		GenerateDeployment:         m.SelectedRes["Deployment"],
+		GenerateService:            m.SelectedRes["Service"],
+		GenerateIngress:            m.SelectedRes["Ingress"],
+		GenerateGateway:            m.SelectedRes["Gateway API"],
+		GenerateConfigMap:          m.SelectedRes["ConfigMap"],
+		GenerateSecret:             m.SelectedRes["Secret"],
+		GenerateExternalSecret:     m.SelectedRes["ExternalSecret"],
+		GenerateSealedSecret:       m.SelectedRes["SealedSecret"],
+		GenerateHPA:                m.SelectedRes["HPA"],
+		GenerateServiceMonitor:     m.SelectedRes["ServiceMonitor"],
+		GeneratePDB:                m.SelectedRes["PDB"],
+		GenerateVPA:                m.SelectedRes["VPA"],
+		GenerateKEDA:               m.SelectedRes["KEDA"],
+		GenerateStatefulSet:        m.SelectedRes["StatefulSet"],
+		GenerateCronJob:            m.SelectedRes["CronJob"],
+		GenerateArgoCD:             m.SelectedRes["ArgoCD Application"],
+		GenerateIstio:              m.SelectedRes["Istio VirtualService"],
+		GeneratePVC:                m.SelectedRes["PersistentVolumeClaim"],
+		GenerateNetworkPolicy:      m.SelectedRes["NetworkPolicy"],
+		GenerateDaemonSet:          m.SelectedRes["DaemonSet"],
+		GenerateJob:                m.SelectedRes["Job"],
+		GenerateServiceAccount:     m.SelectedRes["ServiceAccount"],
+		GenerateRbac:               m.SelectedRes["Role"] || m.SelectedRes["RoleBinding"] || m.SelectedRes["ClusterRole"] || m.SelectedRes["ClusterRoleBinding"],
+		GenerateRole:               m.SelectedRes["Role"],
+		GenerateRoleBinding:        m.SelectedRes["RoleBinding"],
+		GenerateClusterRole:        m.SelectedRes["ClusterRole"],
+		GenerateClusterRoleBinding: m.SelectedRes["ClusterRoleBinding"],
+		GeneratePriorityClass:      m.SelectedRes["Priority Class"],
+		GeneratePodMonitor:         m.SelectedRes["PodMonitor"],
+		GeneratePrometheusRule:     m.SelectedRes["PrometheusRule"],
+		GenerateGrafanaDashboard:   m.SelectedRes["GrafanaDashboard"],
+		GenerateArgoCDSet:          m.SelectedRes["ArgoCD ApplicationSet"],
+		GenerateFlux:               m.SelectedRes["Flux HelmRelease"] || m.SelectedRes["Flux Kustomization"],
+		GeneratePodAntiAffinity:   m.SelectedRes["Pod Anti Affinity"] || qualityNames[m.SelectedQuality] == "enterprise",
+		GenerateTopologySpreadConstraints: m.SelectedRes["Topology Spread Constraints"] || qualityNames[m.SelectedQuality] == "enterprise",
+	}
+
+	if m.SelectedAccessMode == 1 {
+		cfg.StorageAccessMode = "ReadWriteMany"
+	}
+	if m.IngressTlsProvider == 1 {
+		cfg.IngressTlsProvider = "secret"
 	}
 
 	return cfg, cfg.AppName
