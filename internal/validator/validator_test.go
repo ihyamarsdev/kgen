@@ -25,6 +25,7 @@ func TestValidateDir(t *testing.T) {
 		IngressEnabled:     false,
 		HPAEnabled:         false,
 		ProdProfile:        false,
+		TemplateQuality:    "basic",
 		GenerateDeployment: true,
 		GenerateService:    true,
 	}
@@ -66,6 +67,7 @@ func TestValidateDir(t *testing.T) {
 		IngressEnabled:     true,
 		HPAEnabled:         true,
 		ProdProfile:        true,
+		TemplateQuality:    "production",
 		GenerateDeployment: true,
 		GenerateService:    true,
 		GenerateIngress:    true,

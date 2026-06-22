@@ -84,18 +84,32 @@ var createCmd = &cobra.Command{
 		fmt.Println("├── Chart.yaml")
 		fmt.Println("├── values.yaml")
 		fmt.Println("└── templates/")
-		if cfg.GenerateDeployment {
-			fmt.Println("    ├── deployment.yaml")
+		fmt.Println("    ├── _helpers.tpl")
+
+		printFile := func(name string, exists bool) {
+			if exists {
+				fmt.Printf("    ├── %s\n", name)
+			}
 		}
-		if cfg.GenerateService {
-			fmt.Println("    ├── service.yaml")
-		}
-		if cfg.GenerateIngress {
-			fmt.Println("    ├── ingress.yaml")
-		}
-		if cfg.GenerateHPA {
-			fmt.Println("    └── hpa.yaml")
-		}
+
+		printFile("deployment.yaml", cfg.GenerateDeployment)
+		printFile("service.yaml", cfg.GenerateService)
+		printFile("ingress.yaml", cfg.GenerateIngress)
+		printFile("gateway.yaml", cfg.GenerateGateway)
+		printFile("httproute.yaml", cfg.GenerateGateway)
+		printFile("configmap.yaml", cfg.GenerateConfigMap)
+		printFile("externalsecret.yaml", cfg.GenerateExternalSecret)
+		printFile("hpa.yaml", cfg.GenerateHPA)
+		printFile("vpa.yaml", cfg.GenerateVPA)
+		printFile("scaledobject.yaml", cfg.GenerateKEDA)
+		printFile("statefulset.yaml", cfg.GenerateStatefulSet)
+		printFile("cronjob.yaml", cfg.GenerateCronJob)
+		printFile("application.yaml", cfg.GenerateArgoCD)
+		printFile("virtualservice.yaml", cfg.GenerateIstio)
+		printFile("pvc.yaml", cfg.GeneratePVC)
+		printFile("networkpolicy.yaml", cfg.GenerateNetworkPolicy)
+		printFile("servicemonitor.yaml", cfg.GenerateServiceMonitor)
+		printFile("pdb.yaml", cfg.GeneratePDB)
 		fmt.Println()
 		fmt.Printf("Ready to deploy! You can validate it by running:\n  kgen validate %s\n\n", targetDir)
 		_ = successStyle // silence compiler if unused

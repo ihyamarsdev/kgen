@@ -17,7 +17,9 @@ type Step int
 const (
 	StepAppInfo Step = iota
 	StepMode
+	StepQuality
 	StepCustomResources
+	StepSecretBackend
 	StepConfirm
 	StepDone
 )
@@ -28,6 +30,23 @@ const (
 	ModeSimple Mode = iota
 	ModeAdvanced
 	ModeCustom
+)
+
+type Quality int
+
+const (
+	QualityBasic Quality = iota
+	QualityProduction
+	QualityEnterprise
+)
+
+type Backend int
+
+const (
+	BackendVault Backend = iota
+	BackendAWS
+	BackendGCP
+	BackendAzure
 )
 
 type WizardModel struct {
@@ -42,10 +61,16 @@ type WizardModel struct {
 	// Step 2: Mode selection
 	SelectedMode Mode
 
+	// Step 2.5: Template Quality
+	SelectedQuality Quality
+
 	// Step 3: Custom checkboxes
 	Resources   []string
 	SelectedRes map[string]bool
 	ResCursor   int
+
+	// Step 3.5: Secret Backend
+	SelectedBackend Backend
 
 	// Confirmation button focus (0: Generate, 1: Cancel)
 	ConfirmCursor int
@@ -58,20 +83,45 @@ type WizardModel struct {
 
 func InitialModel(profile string, defaultAppName string) WizardModel {
 	m := WizardModel{
-		Step:          StepAppInfo,
-		Profile:       profile,
-		SelectedMode:  ModeSimple,
-		Resources:     []string{"Deployment", "Service", "Ingress", "HPA"},
-		SelectedRes:   map[string]bool{"Deployment": true, "Service": true},
+		Step:            StepAppInfo,
+		Profile:         profile,
+		SelectedMode:    ModeSimple,
+		SelectedQuality: QualityProduction, // default
+		SelectedBackend: BackendVault,      // default
+		Resources: []string{
+			"Deployment",
+			"Service",
+			"Ingress",
+			"Gateway API",
+			"ConfigMap",
+			"ExternalSecret",
+			"HPA",
+			"ServiceMonitor",
+			"PDB",
+			"VPA",
+			"KEDA",
+			"StatefulSet",
+			"CronJob",
+			"ArgoCD Application",
+			"Istio VirtualService",
+		},
+		SelectedRes: map[string]bool{
+			"Deployment": true,
+			"Service":    true,
+		},
 		ResCursor:     0,
 		ConfirmCursor: 0,
 	}
 
-	// Adjust initial selected mode and resources if profile is prod
 	if profile == "prod" {
 		m.SelectedMode = ModeAdvanced
+		m.SelectedQuality = QualityProduction
 		m.SelectedRes["Ingress"] = true
 		m.SelectedRes["HPA"] = true
+		m.SelectedRes["PDB"] = true
+		m.SelectedRes["ServiceMonitor"] = true
+	} else {
+		m.SelectedQuality = QualityBasic
 	}
 
 	// Initialize inputs
@@ -124,11 +174,25 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "esc":
 			if m.Step > StepAppInfo {
-				// Go back a step
-				if m.Step == StepConfirm && m.SelectedMode != ModeCustom {
+				switch m.Step {
+				case StepMode:
+					m.Step = StepAppInfo
+				case StepQuality:
 					m.Step = StepMode
-				} else {
-					m.Step--
+				case StepCustomResources:
+					m.Step = StepQuality
+				case StepSecretBackend:
+					m.Step = StepCustomResources
+				case StepConfirm:
+					if m.SelectedMode == ModeCustom {
+						if m.SelectedRes["ExternalSecret"] {
+							m.Step = StepSecretBackend
+						} else {
+							m.Step = StepCustomResources
+						}
+					} else {
+						m.Step = StepQuality
+					}
 				}
 				return m, nil
 			}
@@ -149,8 +213,12 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateAppInfo(msg)
 	case StepMode:
 		return m.updateMode(msg)
+	case StepQuality:
+		return m.updateQuality(msg)
 	case StepCustomResources:
 		return m.updateCustomResources(msg)
+	case StepSecretBackend:
+		return m.updateSecretBackend(msg)
 	case StepConfirm:
 		return m.updateConfirm(msg)
 	}
@@ -164,7 +232,6 @@ func (m *WizardModel) updateAppInfo(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			if m.ActiveInput == len(m.Inputs)-1 {
-				// Validate and go to next step
 				appName := strings.TrimSpace(m.Inputs[0].Value())
 				if appName == "" {
 					m.Inputs[0].SetValue("my-app")
@@ -182,7 +249,6 @@ func (m *WizardModel) updateAppInfo(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Update active textinput
 	var cmd tea.Cmd
 	m.Inputs[m.ActiveInput], cmd = m.Inputs[m.ActiveInput].Update(msg)
 	return m, cmd
@@ -223,26 +289,50 @@ func (m *WizardModel) updateMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			// Set defaults based on mode selection
-			switch m.SelectedMode {
-			case ModeSimple:
-				m.SelectedRes = map[string]bool{
-					"Deployment": true,
-					"Service":    true,
-					"Ingress":    false,
-					"HPA":        false,
-				}
-				m.Step = StepConfirm
-			case ModeAdvanced:
-				m.SelectedRes = map[string]bool{
-					"Deployment": true,
-					"Service":    true,
-					"Ingress":    true,
-					"HPA":        true,
-				}
-				m.Step = StepConfirm
-			case ModeCustom:
+			m.Step = StepQuality
+		}
+	}
+	return m, nil
+}
+
+func (m *WizardModel) updateQuality(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k":
+			if m.SelectedQuality > QualityBasic {
+				m.SelectedQuality--
+			} else {
+				m.SelectedQuality = QualityEnterprise
+			}
+
+		case "down", "j":
+			if m.SelectedQuality < QualityEnterprise {
+				m.SelectedQuality++
+			} else {
+				m.SelectedQuality = QualityBasic
+			}
+
+		case "enter":
+			if m.SelectedMode == ModeCustom {
 				m.Step = StepCustomResources
+			} else {
+				if m.SelectedMode == ModeSimple {
+					m.SelectedRes = map[string]bool{
+						"Deployment": true,
+						"Service":    true,
+					}
+				} else if m.SelectedMode == ModeAdvanced {
+					m.SelectedRes = map[string]bool{
+						"Deployment":     true,
+						"Service":        true,
+						"Ingress":        true,
+						"HPA":            true,
+						"PDB":            true,
+						"ServiceMonitor": true,
+					}
+				}
+				m.Step = StepConfirm
 			}
 		}
 	}
@@ -270,6 +360,49 @@ func (m *WizardModel) updateCustomResources(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case " ":
 			res := m.Resources[m.ResCursor]
 			m.SelectedRes[res] = !m.SelectedRes[res]
+
+			// Smart Dependency Engine
+			if res == "ServiceMonitor" && m.SelectedRes["ServiceMonitor"] {
+				m.SelectedRes["Service"] = true
+			}
+			if res == "Service" && !m.SelectedRes["Service"] {
+				m.SelectedRes["ServiceMonitor"] = false
+			}
+			if res == "StatefulSet" && m.SelectedRes["StatefulSet"] {
+				m.SelectedRes["PVC"] = true
+			}
+			if res == "StatefulSet" && !m.SelectedRes["StatefulSet"] {
+				m.SelectedRes["PVC"] = false
+			}
+
+		case "enter":
+			if m.SelectedRes["ExternalSecret"] {
+				m.Step = StepSecretBackend
+			} else {
+				m.Step = StepConfirm
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m *WizardModel) updateSecretBackend(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k":
+			if m.SelectedBackend > BackendVault {
+				m.SelectedBackend--
+			} else {
+				m.SelectedBackend = BackendAzure
+			}
+
+		case "down", "j":
+			if m.SelectedBackend < BackendAzure {
+				m.SelectedBackend++
+			} else {
+				m.SelectedBackend = BackendVault
+			}
 
 		case "enter":
 			m.Step = StepConfirm
@@ -376,6 +509,28 @@ func (m *WizardModel) View() string {
 		}
 		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to select. Esc to go back. (Press '?' for help)"))
 
+	case StepQuality:
+		sb.WriteString(HeaderStyle.Render("Step 2.5: Choose Template Quality"))
+		sb.WriteString("\n")
+		qualities := []struct {
+			name, desc string
+		}{
+			{"Basic", "Minimal configuration, low resource footprint"},
+			{"Production", "Adds requests/limits, probes, HPA, and PDB"},
+			{"Enterprise", "Adds NetworkPolicy, topology constraints, PodSecurityContext, anti-affinity"},
+		}
+
+		for i, q := range qualities {
+			cursor := "  "
+			nameStyle := lipgloss.NewStyle().Foreground(White)
+			if int(m.SelectedQuality) == i {
+				cursor = ActiveInputStyle.Render("> ")
+				nameStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+			}
+			sb.WriteString(fmt.Sprintf("%s%-12s : %s\n", cursor, nameStyle.Render(q.name), GrayStyle.Render(q.desc)))
+		}
+		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to select. Esc to go back. (Press '?' for help)"))
+
 	case StepCustomResources:
 		sb.WriteString(HeaderStyle.Render("Step 3: Select Resources to Generate"))
 		sb.WriteString("\n")
@@ -397,6 +552,30 @@ func (m *WizardModel) View() string {
 			sb.WriteString(fmt.Sprintf("%s[%s] %s\n", cursor, checked, resStyle.Render(res)))
 		}
 		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Space to select/deselect. Enter to confirm. Esc to go back. (Press '?' for help)"))
+		if m.SelectedRes["HPA"] {
+			sb.WriteString("\n" + lipgloss.NewStyle().Foreground(Magenta).Italic(true).Render("  💡 HPA requires Resource Requests (Production/Enterprise Quality) to function correctly."))
+		}
+
+	case StepSecretBackend:
+		sb.WriteString(HeaderStyle.Render("Step 3.5: Choose Secret Backend for ExternalSecret"))
+		sb.WriteString("\n")
+		backends := []string{
+			"Vault",
+			"AWS Secrets Manager",
+			"GCP Secret Manager",
+			"Azure Key Vault",
+		}
+
+		for i, b := range backends {
+			cursor := "  "
+			nameStyle := lipgloss.NewStyle().Foreground(White)
+			if int(m.SelectedBackend) == i {
+				cursor = ActiveInputStyle.Render("> ")
+				nameStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+			}
+			sb.WriteString(fmt.Sprintf("%s%s\n", cursor, nameStyle.Render(b)))
+		}
+		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to select. Esc to go back. (Press '?' for help)"))
 
 	case StepConfirm:
 		sb.WriteString(HeaderStyle.Render("Step 4: Confirm Generation Settings"))
@@ -409,13 +588,23 @@ func (m *WizardModel) View() string {
 			}
 		}
 
+		var qualityNames = []string{"Basic", "Production", "Enterprise"}
+		var backendNames = []string{"Vault", "AWS Secrets Manager", "GCP Secret Manager", "Azure Key Vault"}
+
+		backendLine := ""
+		if m.SelectedRes["ExternalSecret"] {
+			backendLine = fmt.Sprintf("\nSecret Backend    : %s", backendNames[m.SelectedBackend])
+		}
+
 		summary := fmt.Sprintf(
-			"Application Name  : %s\nNamespace         : %s\nContainer Image   : %s\nContainer Port    : %s\nProfile           : %s\nResources         : %s",
+			"Application Name  : %s\nNamespace         : %s\nContainer Image   : %s\nContainer Port    : %s\nProfile           : %s\nTemplate Quality  : %s%s\nResources         : %s",
 			m.Inputs[0].Value(),
 			m.Inputs[1].Value(),
 			m.Inputs[2].Value(),
 			m.Inputs[3].Value(),
 			m.Profile,
+			qualityNames[m.SelectedQuality],
+			backendLine,
 			strings.Join(resList, ", "),
 		)
 		sb.WriteString(SummaryBox.Render(summary))
@@ -439,14 +628,21 @@ func (m *WizardModel) View() string {
 }
 
 func (m *WizardModel) renderProgress() string {
-	steps := []string{"App Info", "Mode", "Resources", "Confirm"}
+	steps := []string{"App Info", "Mode", "Quality", "Resources", "Confirm"}
 	var rendered []string
 
-	currentStepIndex := int(m.Step)
-	if m.Step == StepConfirm {
-		currentStepIndex = 3
-	} else if m.Step == StepCustomResources {
+	currentStepIndex := 0
+	switch m.Step {
+	case StepAppInfo:
+		currentStepIndex = 0
+	case StepMode:
+		currentStepIndex = 1
+	case StepQuality:
 		currentStepIndex = 2
+	case StepCustomResources, StepSecretBackend:
+		currentStepIndex = 3
+	case StepConfirm:
+		currentStepIndex = 4
 	}
 
 	for i, s := range steps {
@@ -480,22 +676,42 @@ func (m *WizardModel) GetConfig() (generator.Config, string) {
 		replicaCount = 3
 	}
 
+	var qualityNames = []string{"basic", "production", "enterprise"}
+	var backendNames = []string{"vault", "aws", "gcp", "azure"}
+
 	cfg := generator.Config{
-		AppName:            m.Inputs[0].Value(),
-		Namespace:          m.Inputs[1].Value(),
-		ImageRepository:    repo,
-		ImageTag:           tag,
-		Port:               port,
-		ReplicaCount:       replicaCount,
-		IngressEnabled:     m.SelectedRes["Ingress"],
-		HPAEnabled:         m.SelectedRes["HPA"],
-		HPAMinReplicas:     replicaCount,
-		HPAMaxReplicas:     replicaCount * 3,
-		ProdProfile:        m.Profile == "prod",
-		GenerateDeployment: m.SelectedRes["Deployment"],
-		GenerateService:    m.SelectedRes["Service"],
-		GenerateIngress:    m.SelectedRes["Ingress"],
-		GenerateHPA:        m.SelectedRes["HPA"],
+		AppName:         m.Inputs[0].Value(),
+		Namespace:       m.Inputs[1].Value(),
+		ImageRepository: repo,
+		ImageTag:        tag,
+		Port:            port,
+		ReplicaCount:    replicaCount,
+		IngressEnabled:  m.SelectedRes["Ingress"],
+		HPAEnabled:      m.SelectedRes["HPA"],
+		HPAMinReplicas:  replicaCount,
+		HPAMaxReplicas:  replicaCount * 3,
+		ProdProfile:     m.Profile == "prod",
+
+		TemplateQuality: qualityNames[m.SelectedQuality],
+		SecretBackend:   backendNames[m.SelectedBackend],
+
+		GenerateDeployment:     m.SelectedRes["Deployment"],
+		GenerateService:        m.SelectedRes["Service"],
+		GenerateIngress:        m.SelectedRes["Ingress"],
+		GenerateGateway:        m.SelectedRes["Gateway API"],
+		GenerateConfigMap:      m.SelectedRes["ConfigMap"],
+		GenerateExternalSecret: m.SelectedRes["ExternalSecret"],
+		GenerateHPA:            m.SelectedRes["HPA"],
+		GenerateServiceMonitor: m.SelectedRes["ServiceMonitor"],
+		GeneratePDB:            m.SelectedRes["PDB"],
+		GenerateVPA:            m.SelectedRes["VPA"],
+		GenerateKEDA:           m.SelectedRes["KEDA"],
+		GenerateStatefulSet:    m.SelectedRes["StatefulSet"],
+		GenerateCronJob:        m.SelectedRes["CronJob"],
+		GenerateArgoCD:         m.SelectedRes["ArgoCD Application"],
+		GenerateIstio:          m.SelectedRes["Istio VirtualService"],
+		GeneratePVC:            m.SelectedRes["PVC"],
+		GenerateNetworkPolicy:  m.SelectedRes["NetworkPolicy"] || (qualityNames[m.SelectedQuality] == "enterprise"),
 	}
 
 	return cfg, cfg.AppName

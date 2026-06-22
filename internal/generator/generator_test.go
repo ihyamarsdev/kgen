@@ -25,6 +25,7 @@ func TestGenerate(t *testing.T) {
 		HPAMinReplicas:     2,
 		HPAMaxReplicas:     6,
 		ProdProfile:        true,
+		TemplateQuality:    "production",
 		GenerateDeployment: true,
 		GenerateService:    true,
 		GenerateIngress:    true,
