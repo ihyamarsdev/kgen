@@ -41,7 +41,7 @@ Pastikan Anda memiliki Go (versi 1.22 ke atas) yang terinstal di sistem Anda.
 
 ### 1. Membuat Helm Chart Baru (`kgen create`)
 
-Untuk memulai wizard interaktif pembuatan Helm Chart:
+Untuk memulai wizard interaktif pembuatan Helm Chart (secara default output akan disimpan di folder `~/kgen/<app-name>`):
 ```bash
 ./kgen create
 ```
