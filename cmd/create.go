@@ -240,7 +240,9 @@ var createCmd = &cobra.Command{
 				cmdEdit.Stdin = os.Stdin
 				cmdEdit.Stdout = os.Stdout
 				cmdEdit.Stderr = os.Stderr
-				_ = cmdEdit.Run()
+				if err := cmdEdit.Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: editor exited with error: %v\n", err)
+			}
 			}
 		} else {
 			fmt.Println("No terminal editor ($EDITOR, nano, vim, vi) found in path. Skipping file edit option.")

@@ -43,8 +43,10 @@ func runUninstall() {
 		})
 	}
 
+	home := homeDir()
+
 	// 2. Generated charts directory (~/kgen).
-	if home := homeDir(); home != "" {
+	if home != "" {
 		kgenDir := filepath.Join(home, "kgen")
 		if info, err := os.Stat(kgenDir); err == nil && info.IsDir() {
 			items = append(items, uninstallItem{
@@ -56,7 +58,7 @@ func runUninstall() {
 	}
 
 	// 3. Configuration directory (~/.config/kgen).
-	if home := homeDir(); home != "" {
+	if home != "" {
 		cfgDir := filepath.Join(home, ".config", "kgen")
 		if info, err := os.Stat(cfgDir); err == nil && info.IsDir() {
 			items = append(items, uninstallItem{

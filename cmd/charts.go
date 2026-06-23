@@ -87,17 +87,14 @@ func scanAllChartFiles(dir string) (map[string]string, error) {
 		}
 		if !info.IsDir() {
 			rel, err := filepath.Rel(dir, path)
-			if err == nil && !isHidden(rel) {
-				content, err := os.ReadFile(path)
-			if err != nil {
-				// Silently skip unreadable files (broken symlinks, permissions).
-				// The caller will see this file missing from the result.
+			if err != nil || isHidden(rel) {
 				return nil
 			}
-				if err == nil {
-					files[rel] = string(content)
-				}
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return nil
 			}
+			files[rel] = string(content)
 		}
 		return nil
 	})

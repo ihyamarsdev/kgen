@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.1] - 2026-06-23
+
+### Fixed
+- **go.mod**: Fix Go version declaration from `1.24.2` (nonexistent) to `1.22` — fixes CI build failures
+- **scanAllChartFiles**: Remove dead code (redundant `if err == nil` after error check) and fix broken indentation
+- **Wizard storage navigation**: Fix off-by-one error (`% 3` on 2-element array) that could cause index out of range
+- **Editor errors**: Report editor exit errors to stderr instead of silently swallowing them
+- **deploy/undeploy/status**: Fix `helmArgs[0]` display — now shows full command via `strings.Join`
+- **deploy.go status**: Fix malformed "Deploy it first with" suggestion message
+- **validateStorageSize**: Hoist regex compilation to package level (was recompiling on every call)
+- **install.sh**: Update DEFAULT_VERSION to v0.3.0 (was v0.2.0)
+- **update.go**: Add cross-filesystem fallback for `os.Rename()` — falls back to `copyFile` on EXDEV error
+- **diff**: Exit code 1 when differences are found (standard diff convention for scripting)
+- **uninstall.go**: Cache `homeDir()` result instead of calling it twice
+- **version.go**: Fix ldflags example path in comment to match actual module path
+
+## [v0.3.0] - 2026-06-23
+
+### Added
+- **`kgen deploy`**: Install or upgrade a Helm chart to Kubernetes cluster
+- **`kgen undeploy`**: Uninstall a Helm release from Kubernetes cluster
+- **`kgen status`**: Show status of a deployed Helm release
+- Helm helpers: `findHelm()`, `helmReleaseExists()`, `releaseNameFromChart()`
+
+## [v0.2.1] - 2026-06-23
+
+### Fixed
+- **copyFile()**: Properly handle Close() errors and add Sync() to prevent corrupted binary
+- **install.sh**: Hard fail if shasum/sha256sum are missing — checksum verification was silently bypassed
+- **kgen create --force**: Remove existing directory before regenerating to prevent stale file accumulation
+- **Empty AppName**: Sanitize in GetConfig() — defaults to "my-app" instead of empty string
+- **promptChartChoice**: Handle UserHomeDir error — was producing invalid paths
+- Remove duplicate AddTemplateFunc calls (dead code)
+- scanAllChartFiles: Early return on ReadFile errors
+- Split err/len(files) checks in edit.go — was printing "nil" as error
+- Add Chart.yaml and values.yaml to edit menu
+- Fix CHANGELOG duplicate entries
+- Storage class name validation in wizard
+- install.sh: shell-aware PATH export, VERSION format validation
+- Consistent stderr for error messages
+- Hoist MustCompile regex to package-level var
+
+## [v0.2.0] - 2026-06-23
+
+### Added
+- **GitHub Actions CI/CD** pipeline with test matrix (Go 1.22, 1.23)
+- **golangci-lint** integration
+- **CHANGELOG.md** from v0.0.1 to current
+- **24 unit tests** across cmd, generator, tui, validator packages (0 failures)
+- **E2E tests**: full flow (create → validate → diff), hidden files, strict validation
+
+### Changed
+- **root.go**: Remove dead duplicate AddTemplateFunc calls, simplify applyHelpToAll
+
 ## [v0.1.9] - 2026-06-23
 
 ### Added

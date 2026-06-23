@@ -109,6 +109,8 @@ func runDiff(args []string) {
 
 	if !hasDiff {
 		fmt.Println(tui.SuccessStyle.Render("No differences found between the two charts."))
+	} else {
+		os.Exit(1)
 	}
 }
 

@@ -22,6 +22,9 @@ func validatePort(s string) int {
 	return port
 }
 
+// storageSizeRe validates Kubernetes storage size patterns (e.g. "10Gi", "500Mi").
+var storageSizeRe = regexp.MustCompile(`^\d+(Gi|Mi|Ti)$`)
+
 // validateStorageSize checks if the value matches a valid Kubernetes storage
 // size pattern (e.g. "10Gi", "500Mi"). Returns the cleaned value or the default.
 func validateStorageSize(s string, defaultVal string) string {
@@ -29,7 +32,6 @@ func validateStorageSize(s string, defaultVal string) string {
 	if s == "" {
 		return defaultVal
 	}
-	var storageSizeRe = regexp.MustCompile(`^\d+(Gi|Mi|Ti)$`)
 	if storageSizeRe.MatchString(s) {
 		return s
 	}
@@ -715,7 +717,7 @@ func (m *WizardModel) nextStorageInput() {
 		m.StorageInputs[m.ActiveStorageInput].Blur()
 		m.StorageInputs[m.ActiveStorageInput].PromptStyle = InactiveInputStyle
 	}
-	m.ActiveStorageInput = (m.ActiveStorageInput + 1) % 3
+	m.ActiveStorageInput = (m.ActiveStorageInput + 1) % 2
 	if m.ActiveStorageInput < 2 {
 		m.StorageInputs[m.ActiveStorageInput].Focus()
 		m.StorageInputs[m.ActiveStorageInput].PromptStyle = ActiveInputStyle
@@ -727,7 +729,7 @@ func (m *WizardModel) prevStorageInput() {
 		m.StorageInputs[m.ActiveStorageInput].Blur()
 		m.StorageInputs[m.ActiveStorageInput].PromptStyle = InactiveInputStyle
 	}
-	m.ActiveStorageInput = (m.ActiveStorageInput - 1 + 3) % 3
+	m.ActiveStorageInput = (m.ActiveStorageInput - 1 + 3) % 2
 	if m.ActiveStorageInput < 2 {
 		m.StorageInputs[m.ActiveStorageInput].Focus()
 		m.StorageInputs[m.ActiveStorageInput].PromptStyle = ActiveInputStyle

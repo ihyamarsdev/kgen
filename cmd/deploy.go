@@ -7,6 +7,8 @@ import (
 
 	"github.com/ihyamarsdev/kgen/internal/tui"
 
+	"strings"
+
 	"github.com/spf13/cobra"
 )
 
@@ -154,7 +156,7 @@ func runDeploy(args []string) {
 		fmt.Println()
 	}
 
-	fmt.Printf("Running: helm %s\n\n", helmArgs[0])
+	fmt.Printf("Running: helm %s\n\n", strings.Join(helmArgs, " "))
 
 	if err := helmRun(helmArgs...); err != nil {
 		printErr("Helm %s failed: %v", action, err)
@@ -233,7 +235,7 @@ func runUndeploy(args []string) {
 		helmArgs = append(helmArgs, "--dry-run")
 	}
 
-	fmt.Printf("Running: helm %s\n\n", helmArgs[0])
+	fmt.Printf("Running: helm %s\n\n", strings.Join(helmArgs, " "))
 
 	if err := helmRun(helmArgs...); err != nil {
 		printErr("Helm uninstall failed: %v", err)
@@ -260,12 +262,12 @@ func runStatus(args []string) {
 
 	if !helmReleaseExists(release, deployNamespace) {
 		printErr("Error: Release '%s' not found in namespace '%s'.", release, deployNamespace)
-		fmt.Println("Deploy it first with: kgen deploy", chartDir)
+		fmt.Printf("Deploy it first with: kgen deploy %s\n", chartDir)
 		os.Exit(1)
 	}
 
 	helmArgs := []string{"status", release, "--namespace", deployNamespace}
-	fmt.Printf("Running: helm %s\n\n", helmArgs[0])
+	fmt.Printf("Running: helm %s\n\n", strings.Join(helmArgs, " "))
 
 	if err := helmRun(helmArgs...); err != nil {
 		printErr("Helm status failed: %v", err)

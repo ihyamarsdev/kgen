@@ -214,8 +214,12 @@ func installBinary(src, dest string) (string, error) {
 			return "", fmt.Errorf("failed to set permissions: %w", err)
 		}
 		if err := os.Rename(tmpDest, dest); err != nil {
+			// os.Rename fails across filesystems (EXDEV). Fall back to copy+replace.
+			if err := copyFile(tmpDest, dest); err != nil {
+				os.Remove(tmpDest)
+				return "", fmt.Errorf("failed to replace binary: %w", err)
+			}
 			os.Remove(tmpDest)
-			return "", fmt.Errorf("failed to replace binary: %w", err)
 		}
 		return dest, nil
 	}

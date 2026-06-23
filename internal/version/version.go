@@ -14,7 +14,7 @@ const (
 // It is intentionally maintained by hand per release. Distributors may override
 // it at build time via -ldflags:
 //
-//	go build -ldflags "-X kgen/internal/version.Version=v0.2.0" -o kgen main.go
+//	go build -ldflags "-X github.com/ihyamarsdev/kgen/internal/version.Version=v0.3.0" -o kgen main.go
 var Version = "v0.3.0"
 
 // RepoURL returns the canonical GitHub URL for the project.
