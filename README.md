@@ -20,6 +20,8 @@ KGen helps developers, DevOps, and Platform Engineers establish consistent Kuber
 - **Production Readiness Score**: Computes and displays a colored readiness score (out of 100) detailing compliance checks (probes, requests/limits, security policies) after generation.
 - **Best Practices Validator**: Run `kgen validate` to inspect generated files against best practice guidelines.
 - **Resource Explainer**: Run `kgen explain` to see functional descriptions of Kubernetes resources in clear, readable terms.
+- **Chart Diff**: Run `kgen diff` to compare two generated Helm chart directories and see exactly what changed.
+- **Template Preview**: Run `kgen preview` to render and display Helm chart templates in the terminal without writing to disk.
 
 ---
 
@@ -125,6 +127,27 @@ To skip the confirmation prompt:
 kgen uninstall -y
 ```
 
+### 7. Compare Charts (`kgen diff`)
+
+To compare two generated Helm chart directories and see differences:
+```bash
+kgen diff [chart-a] [chart-b]
+```
+
+If paths are omitted, KGen will let you select from charts in `~/kgen/`.
+Color-coded output shows removed lines (red `-`) and added lines (green `+`).
+
+### 8. Preview Templates (`kgen preview`)
+
+To render and display Helm chart templates in the terminal:
+```bash
+kgen preview [chart-directory]
+```
+
+If no directory is specified, KGen will auto-select or let you choose from `~/kgen/`.
+Go-template files (Chart.yaml, values.yaml) are rendered with default values;
+static template files (templates/*.yaml) are displayed as-is.
+
 ---
 
 ## Project Structure
@@ -132,7 +155,10 @@ kgen uninstall -y
 ```text
 kgen/
 ├── cmd/
+│   ├── charts.go      # Shared chart listing, selection, and file scanning helpers
 │   ├── common.go      # Shared helpers (confirmation, error printing)
+│   ├── diff.go        # 'kgen diff' command
+│   ├── preview.go     # 'kgen preview' command
 │   ├── root.go        # Cobra root command (includes --version flag)
 │   ├── create.go      # 'kgen create' command
 │   ├── edit.go        # 'kgen edit' command
@@ -147,6 +173,7 @@ kgen/
 │   ├── tui/
 │   │   ├── styles.go    # Lipgloss styling tokens
 │   │   ├── selector.go  # File selector/editor Bubble Tea TUI
+│   │   ├── chartlist.go # Chart folder selection Bubble Tea TUI
 │   │   └── wizard.go    # Bubble Tea TUI implementation
 │   ├── validator/
 │   │   └── validator.go # Best practices validator
