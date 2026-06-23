@@ -2,11 +2,15 @@ package generator
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
 	"text/template"
 )
+
+//go:embed templates/*
+var templateFS embed.FS
 
 type Config struct {
 	AppName         string
@@ -76,10 +80,19 @@ type Config struct {
 	GenerateTopologySpreadConstraints bool
 }
 
-// tmplEntry maps a boolean condition to a template content string.
+// tmplEntry maps a boolean condition to a template filename.
 type tmplEntry struct {
-	enabled  bool
-	template string
+	enabled    bool
+	embedPath  string
+	outputName string
+}
+
+func readTemplate(path string) (string, error) {
+	data, err := templateFS.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("embedded template %s not found: %w", path, err)
+	}
+	return string(data), nil
 }
 
 func Generate(cfg Config, outputDir string) error {
@@ -89,8 +102,12 @@ func Generate(cfg Config, outputDir string) error {
 		return fmt.Errorf("failed to create directory structure: %w", err)
 	}
 
-	// renderAndWrite renders a template string with the Config and writes it to a file.
-	renderAndWrite := func(tmplStr, filePath string) error {
+	// renderAndWrite reads a template from embed.FS, renders it with Config, and writes to disk.
+	renderAndWrite := func(embedPath, filePath string) error {
+		tmplStr, err := readTemplate(embedPath)
+		if err != nil {
+			return err
+		}
 		tmpl, err := template.New(filepath.Base(filePath)).Funcs(template.FuncMap{
 			"quote": func(s string) string {
 				return fmt.Sprintf("%q", s)
@@ -109,65 +126,73 @@ func Generate(cfg Config, outputDir string) error {
 		return nil
 	}
 
+	// writeStatic reads a template from embed.FS and writes it to disk without rendering.
+	writeStatic := func(embedPath, filePath string) error {
+		data, err := templateFS.ReadFile(embedPath)
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", embedPath, err)
+		}
+		if err := os.WriteFile(filePath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", filePath, err)
+		}
+		return nil
+	}
+
 	// Write Chart.yaml and values.yaml (rendered via text/template).
-	if err := renderAndWrite(ChartTemplate, filepath.Join(outputDir, "Chart.yaml")); err != nil {
+	if err := renderAndWrite("templates/chart.yaml", filepath.Join(outputDir, "Chart.yaml")); err != nil {
 		return err
 	}
-	if err := renderAndWrite(ValuesTemplate, filepath.Join(outputDir, "values.yaml")); err != nil {
+	if err := renderAndWrite("templates/values.yaml", filepath.Join(outputDir, "values.yaml")); err != nil {
 		return err
 	}
 
 	// Write _helpers.tpl (static).
-	if err := os.WriteFile(filepath.Join(templatesDir, "_helpers.tpl"), []byte(HelpersTemplate), 0644); err != nil {
-		return fmt.Errorf("failed to write _helpers.tpl: %w", err)
+	if err := writeStatic("templates/_helpers.tpl", filepath.Join(templatesDir, "_helpers.tpl")); err != nil {
+		return err
 	}
 
 	// Table-driven conditional template writing — replaces ~200 lines of repetitive if blocks.
-	templates := []struct {
-		name    string
-		enabled bool
-		content string
-	}{
-		{"deployment.yaml", cfg.GenerateDeployment, DeploymentTemplate},
-		{"service.yaml", cfg.GenerateService, ServiceTemplate},
-		{"ingress.yaml", cfg.GenerateIngress, IngressTemplate},
-		{"gateway.yaml", cfg.GenerateGateway, GatewayTemplate},
-		{"httproute.yaml", cfg.GenerateGateway, HTTPRouteTemplate},
-		{"configmap.yaml", cfg.GenerateConfigMap, ConfigMapTemplate},
-		{"secret.yaml", cfg.GenerateSecret, SecretTemplate},
-		{"externalsecret.yaml", cfg.GenerateExternalSecret, ExternalSecretTemplate},
-		{"sealedsecret.yaml", cfg.GenerateSealedSecret, SealedSecretTemplate},
-		{"hpa.yaml", cfg.GenerateHPA, HPATemplate},
-		{"vpa.yaml", cfg.GenerateVPA, VPATemplate},
-		{"scaledobject.yaml", cfg.GenerateKEDA, ScaledObjectTemplate},
-		{"statefulset.yaml", cfg.GenerateStatefulSet, StatefulSetTemplate},
-		{"cronjob.yaml", cfg.GenerateCronJob, CronJobTemplate},
-		{"daemonset.yaml", cfg.GenerateDaemonSet, DaemonSetTemplate},
-		{"job.yaml", cfg.GenerateJob, JobTemplate},
-		{"application.yaml", cfg.GenerateArgoCD, ArgoApplicationTemplate},
-		{"applicationset.yaml", cfg.GenerateArgoCDSet, ArgoApplicationSetTemplate},
-		{"virtualservice.yaml", cfg.GenerateIstio, IstioVirtualServiceTemplate},
-		{"pvc.yaml", cfg.GeneratePVC, PVCTemplate},
-		{"networkpolicy.yaml", cfg.GenerateNetworkPolicy, NetworkPolicyTemplate},
-		{"servicemonitor.yaml", cfg.GenerateServiceMonitor, ServiceMonitorTemplate},
-		{"podmonitor.yaml", cfg.GeneratePodMonitor, PodMonitorTemplate},
-		{"prometheusrule.yaml", cfg.GeneratePrometheusRule, PrometheusRuleTemplate},
-		{"grafanadashboard.yaml", cfg.GenerateGrafanaDashboard, GrafanaDashboardTemplate},
-		{"pdb.yaml", cfg.GeneratePDB, PdbTemplate},
-		{"priorityclass.yaml", cfg.GeneratePriorityClass, PriorityClassTemplate},
-		{"serviceaccount.yaml", cfg.GenerateServiceAccount, ServiceAccountTemplate},
-		{"role.yaml", cfg.GenerateRole, RoleTemplate},
-		{"rolebinding.yaml", cfg.GenerateRoleBinding, RoleBindingTemplate},
-		{"clusterrole.yaml", cfg.GenerateClusterRole, ClusterRoleTemplate},
-		{"clusterrolebinding.yaml", cfg.GenerateClusterRoleBinding, ClusterRoleBindingTemplate},
-		{"helmrelease.yaml", cfg.GenerateFlux, FluxHelmReleaseTemplate},
-		{"fluxkustomization.yaml", cfg.GenerateFlux, FluxKustomizationTemplate},
+	templates := []tmplEntry{
+		{cfg.GenerateDeployment, "templates/deployment.yaml", "deployment.yaml"},
+		{cfg.GenerateService, "templates/service.yaml", "service.yaml"},
+		{cfg.GenerateIngress, "templates/ingress.yaml", "ingress.yaml"},
+		{cfg.GenerateGateway, "templates/gateway.yaml", "gateway.yaml"},
+		{cfg.GenerateGateway, "templates/httproute.yaml", "httproute.yaml"},
+		{cfg.GenerateConfigMap, "templates/configmap.yaml", "configmap.yaml"},
+		{cfg.GenerateSecret, "templates/secret.yaml", "secret.yaml"},
+		{cfg.GenerateExternalSecret, "templates/externalsecret.yaml", "externalsecret.yaml"},
+		{cfg.GenerateSealedSecret, "templates/sealedsecret.yaml", "sealedsecret.yaml"},
+		{cfg.GenerateHPA, "templates/hpa.yaml", "hpa.yaml"},
+		{cfg.GenerateVPA, "templates/vpa.yaml", "vpa.yaml"},
+		{cfg.GenerateKEDA, "templates/scaledobject.yaml", "scaledobject.yaml"},
+		{cfg.GenerateStatefulSet, "templates/statefulset.yaml", "statefulset.yaml"},
+		{cfg.GenerateCronJob, "templates/cronjob.yaml", "cronjob.yaml"},
+		{cfg.GenerateDaemonSet, "templates/daemonset.yaml", "daemonset.yaml"},
+		{cfg.GenerateJob, "templates/job.yaml", "job.yaml"},
+		{cfg.GenerateArgoCD, "templates/application.yaml", "application.yaml"},
+		{cfg.GenerateArgoCDSet, "templates/applicationset.yaml", "applicationset.yaml"},
+		{cfg.GenerateIstio, "templates/virtualservice.yaml", "virtualservice.yaml"},
+		{cfg.GeneratePVC, "templates/pvc.yaml", "pvc.yaml"},
+		{cfg.GenerateNetworkPolicy, "templates/networkpolicy.yaml", "networkpolicy.yaml"},
+		{cfg.GenerateServiceMonitor, "templates/servicemonitor.yaml", "servicemonitor.yaml"},
+		{cfg.GeneratePodMonitor, "templates/podmonitor.yaml", "podmonitor.yaml"},
+		{cfg.GeneratePrometheusRule, "templates/prometheusrule.yaml", "prometheusrule.yaml"},
+		{cfg.GenerateGrafanaDashboard, "templates/grafanadashboard.yaml", "grafanadashboard.yaml"},
+		{cfg.GeneratePDB, "templates/pdb.yaml", "pdb.yaml"},
+		{cfg.GeneratePriorityClass, "templates/priorityclass.yaml", "priorityclass.yaml"},
+		{cfg.GenerateServiceAccount, "templates/serviceaccount.yaml", "serviceaccount.yaml"},
+		{cfg.GenerateRole, "templates/role.yaml", "role.yaml"},
+		{cfg.GenerateRoleBinding, "templates/rolebinding.yaml", "rolebinding.yaml"},
+		{cfg.GenerateClusterRole, "templates/clusterrole.yaml", "clusterrole.yaml"},
+		{cfg.GenerateClusterRoleBinding, "templates/clusterrolebinding.yaml", "clusterrolebinding.yaml"},
+		{cfg.GenerateFlux, "templates/helmrelease.yaml", "helmrelease.yaml"},
+		{cfg.GenerateFlux, "templates/fluxkustomization.yaml", "fluxkustomization.yaml"},
 	}
 
 	for _, t := range templates {
 		if t.enabled {
-			if err := os.WriteFile(filepath.Join(templatesDir, t.name), []byte(t.content), 0644); err != nil {
-				return fmt.Errorf("failed to write %s: %w", t.name, err)
+			if err := writeStatic(t.embedPath, filepath.Join(templatesDir, t.outputName)); err != nil {
+				return err
 			}
 		}
 	}

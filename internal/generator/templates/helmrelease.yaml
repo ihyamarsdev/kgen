@@ -1,0 +1,19 @@
+{{- if .Values.flux.enabled -}}
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: {{ .Chart.Name }}
+      version: {{ .Chart.Version }}
+      sourceRef:
+        kind: HelmRepository
+        name: {{ include "kgen.fullname" . }}
+        namespace: {{ .Release.Namespace }}
+  values:
+    replicaCount: {{ .Values.replicaCount }}
+{{- end }}

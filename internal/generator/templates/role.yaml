@@ -1,0 +1,26 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kgen.fullname" . }}-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+rules:
+  {{- if eq .Values.rbac.level "readonly" }}
+  - apiGroups: [""]
+    resources: ["pods", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  {{- else if eq .Values.rbac.level "admin" }}
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  {{- else }}
+  - apiGroups: [""]
+    resources:
+      {{- range .Values.rbac.customResources }}
+      - {{ . | quote }}
+      {{- end }}
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+{{- end }}

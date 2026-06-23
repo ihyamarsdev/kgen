@@ -1,0 +1,16 @@
+{{- if .Values.podMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kgen.selectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+    - port: http
+      interval: 30s
+{{- end }}

@@ -1,0 +1,18 @@
+{{- if .Values.gateway.enabled -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gateway.name | default (include "kgen.fullname" .) }}
+  namespace: {{ .Values.gateway.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+spec:
+  gatewayClassName: {{ .Values.gateway.name | default "gateway-class" }}
+  listeners:
+    - name: {{ .Values.gateway.listenerName | default "http" }}
+      port: {{ .Values.gateway.port | default 80 }}
+      protocol: {{ .Values.gateway.protocol | default "HTTP" }}
+      allowedRoutes:
+        namespaces:
+          from: Same
+{{- end }}

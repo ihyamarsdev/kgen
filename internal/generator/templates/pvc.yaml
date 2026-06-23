@@ -1,0 +1,16 @@
+{{- if .Values.pvc.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.pvc.accessMode }}
+  storageClassName: {{ .Values.pvc.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.pvc.size }}
+{{- end }}

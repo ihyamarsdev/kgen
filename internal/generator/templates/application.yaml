@@ -1,0 +1,23 @@
+{{- if .Values.argocd.enabled -}}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ include "kgen.fullname" . }}
+  namespace: argocd
+  labels:
+    {{- include "kgen.labels" . | nindent 4 }}
+spec:
+  project: {{ .Values.argocd.project | quote }}
+  source:
+    repoURL: {{ .Values.argocd.repoURL | quote }}
+    targetRevision: {{ .Values.argocd.targetRevision | quote }}
+    path: {{ .Values.argocd.path | quote }}
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Release.Namespace }}
+  syncPolicy:
+    {{- toYaml .Values.argocd.syncPolicy | nindent 4 }}
+{{- end }}

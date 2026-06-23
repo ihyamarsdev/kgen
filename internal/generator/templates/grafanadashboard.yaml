@@ -1,0 +1,15 @@
+{{- if .Values.grafanaDashboard.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kgen.fullname" . }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    grafana_dashboard: "1"
+data:
+  {{ .Chart.Name }}-dashboard.json: |
+    {
+      "title": "{{ .Chart.Name }} Dashboard",
+      "panels": []
+    }
+{{- end }}
