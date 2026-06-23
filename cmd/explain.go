@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"kgen/internal/tui"
+	"github.com/ihyamarsdev/kgen/internal/tui"
 
 	"github.com/spf13/cobra"
 )

@@ -1,6 +1,6 @@
 package main
 
-import "kgen/cmd"
+import "github.com/ihyamarsdev/kgen/cmd"
 
 func main() {
 	cmd.Execute()

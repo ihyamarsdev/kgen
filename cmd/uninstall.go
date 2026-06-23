@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 
-	"kgen/internal/tui"
+	"github.com/ihyamarsdev/kgen/internal/tui"
 
 	"github.com/spf13/cobra"
 )
@@ -166,15 +165,4 @@ func removeBinary(path string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
-}
-
-// homeDir returns the current user's home directory, or empty string on error.
-func homeDir() string {
-	if usr, err := user.Current(); err == nil && usr.HomeDir != "" {
-		return usr.HomeDir
-	}
-	if dir, err := os.UserHomeDir(); err == nil {
-		return dir
-	}
-	return ""
 }

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"kgen/internal/tui"
-	"kgen/internal/version"
+	"github.com/ihyamarsdev/kgen/internal/tui"
+	"github.com/ihyamarsdev/kgen/internal/version"
 
 	"github.com/spf13/cobra"
 )

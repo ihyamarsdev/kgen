@@ -9,12 +9,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 
-	"kgen/internal/tui"
-	"kgen/internal/version"
+	"github.com/ihyamarsdev/kgen/internal/tui"
+	"github.com/ihyamarsdev/kgen/internal/version"
 
 	"github.com/spf13/cobra"
 )
+
+// httpClient is a shared client with a 15-second timeout for all HTTP calls.
+var httpClient = &http.Client{Timeout: 15 * time.Second}
 
 // updateYesFlag (-y / --yes) skips the interactive confirmation prompt.
 var updateYesFlag bool
@@ -120,7 +124,7 @@ func fetchLatestRelease() (string, error) {
 	req.Header.Set("User-Agent", version.UserAgent())
 	req.Header.Set("Accept", "application/vnd.github+json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -165,7 +169,7 @@ func downloadFile(url, dest string) error {
 	}
 	req.Header.Set("User-Agent", version.UserAgent())
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}

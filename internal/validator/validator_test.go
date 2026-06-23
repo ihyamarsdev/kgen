@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"kgen/internal/generator"
+	"github.com/ihyamarsdev/kgen/internal/generator"
 )
 
 func TestValidateDir(t *testing.T) {

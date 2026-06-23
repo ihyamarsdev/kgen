@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"os/user"
 	"strings"
 )
 
@@ -29,4 +31,34 @@ func confirm(prompt string) bool {
 // printErr writes a styled error message to stderr.
 func printErr(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", args...)
+}
+
+// findEditor returns the user's preferred terminal editor.
+//
+// It checks $EDITOR first, then falls back to nano, vim, vi (in that order)
+// based on what is available in PATH. Returns an empty string if none found.
+func findEditor() string {
+	if editor := os.Getenv("EDITOR"); editor != "" {
+		return editor
+	}
+	for _, e := range []string{"nano", "vim", "vi"} {
+		if _, err := exec.LookPath(e); err == nil {
+			return e
+		}
+	}
+	return ""
+}
+
+// homeDir returns the current user's home directory, or an empty string on error.
+//
+// It tries os/user.Current first (more reliable in some environments) and falls
+// back to os.UserHomeDir.
+func homeDir() string {
+	if usr, err := user.Current(); err == nil && usr.HomeDir != "" {
+		return usr.HomeDir
+	}
+	if dir, err := os.UserHomeDir(); err == nil {
+		return dir
+	}
+	return ""
 }

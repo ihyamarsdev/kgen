@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"kgen/internal/generator"
+	"github.com/ihyamarsdev/kgen/internal/generator"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"

@@ -5,9 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
-	"kgen/internal/tui"
+	"github.com/ihyamarsdev/kgen/internal/tui"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -28,20 +27,7 @@ var editCmd = &cobra.Command{
 				targetDir = "."
 			} else {
 				// Scan ~/kgen/ for chart directories
-				var charts []string
-				homeDir, err := os.UserHomeDir()
-				if err == nil {
-					kgenDir := filepath.Join(homeDir, "kgen")
-					entries, err := os.ReadDir(kgenDir)
-					if err == nil {
-						for _, entry := range entries {
-							if entry.IsDir() && isHelmChart(filepath.Join(kgenDir, entry.Name())) {
-								charts = append(charts, entry.Name())
-							}
-						}
-					}
-				}
-
+				charts := listAvailableCharts()
 				switch len(charts) {
 				case 0:
 					fmt.Println("Error: No generated Helm charts found.")
@@ -51,12 +37,10 @@ var editCmd = &cobra.Command{
 
 				case 1:
 					// Only one chart — auto-select it
-					homeDir, _ := os.UserHomeDir()
-					targetDir = filepath.Join(homeDir, "kgen", charts[0])
+					targetDir = filepath.Join(homeDir(), "kgen", charts[0])
 
 				default:
 					// Multiple charts — let user pick via interactive TUI
-					homeDir, _ := os.UserHomeDir()
 					listModel := tui.InitialChartListModel(charts)
 					listProg := tea.NewProgram(&listModel)
 					mRes, err := listProg.Run()
@@ -69,7 +53,7 @@ var editCmd = &cobra.Command{
 						// User cancelled
 						return
 					}
-					targetDir = filepath.Join(homeDir, "kgen", resModel.SelectedChart)
+					targetDir = filepath.Join(homeDir(), "kgen", resModel.SelectedChart)
 				}
 			}
 		}
@@ -81,46 +65,33 @@ var editCmd = &cobra.Command{
 		}
 
 		// Scan for all files recursively
-		var files []string
-		err := filepath.Walk(targetDir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() {
-				rel, err := filepath.Rel(targetDir, path)
-				if err == nil {
-					// Exclude hidden files / dirs
-					if !strings.HasPrefix(rel, ".") && !strings.Contains(rel, "/.") {
-						files = append(files, rel)
-					}
-				}
-			}
-			return nil
-		})
-
+		files, err := scanAllChartFiles(targetDir)
 		if err != nil || len(files) == 0 {
 			fmt.Fprintf(os.Stderr, "Error scanning files in '%s': %v\n", targetDir, err)
 			os.Exit(1)
 		}
 
-		// Launcher loop
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			for _, e := range []string{"nano", "vim", "vi"} {
-				if _, err := exec.LookPath(e); err == nil {
-					editor = e
-					break
-				}
+		// Build sorted file list
+		var fileList []string
+		for f := range files {
+			if !isHidden(f) {
+				fileList = append(fileList, f)
 			}
 		}
+		if len(fileList) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: No editable files found in '%s'\n", targetDir)
+			os.Exit(1)
+		}
 
+		// Launcher loop
+		editor := findEditor()
 		if editor == "" {
 			fmt.Println("Error: No terminal editor ($EDITOR, nano, vim, vi) found in path.")
 			os.Exit(1)
 		}
 
 		for {
-			selModel := tui.InitialSelectorModel(files)
+			selModel := tui.InitialSelectorModel(fileList)
 			selProg := tea.NewProgram(&selModel)
 			mRes, err := selProg.Run()
 			if err != nil {

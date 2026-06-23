@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"kgen/internal/generator"
-	"kgen/internal/tui"
+	"github.com/ihyamarsdev/kgen/internal/generator"
+	"github.com/ihyamarsdev/kgen/internal/tui"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
