@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strings"
 )
 
@@ -61,4 +63,74 @@ func homeDir() string {
 		return dir
 	}
 	return ""
+}
+
+// findHelm checks if the helm CLI binary is available in PATH.
+//
+// Returns the full path to the helm binary or an empty string if not found.
+func findHelm() string {
+	path, err := exec.LookPath("helm")
+	if err != nil {
+		return ""
+	}
+	return path
+}
+
+// helmOutput runs a helm command and returns stdout+stderr combined.
+func helmOutput(args ...string) (string, error) {
+	cmd := exec.Command("helm", args...)
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	return buf.String(), err
+}
+
+// helmRun runs a helm command, streaming output directly to the terminal.
+//
+// Returns true if the command succeeded, false otherwise.
+func helmRun(args ...string) error {
+	cmd := exec.Command("helm", args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// releaseNameFromChart derives a sensible Helm release name from a chart
+// directory. It uses the directory basename, sanitised to be DNS-compatible.
+func releaseNameFromChart(chartDir string) string {
+	name := strings.ToLower(filepath.Base(chartDir))
+	// Replace non-alphanumeric characters with dashes.
+	var result strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			result.WriteRune(r)
+		} else {
+			if result.Len() > 0 && result.String()[result.Len()-1] != '-' {
+				result.WriteRune('-')
+			}
+		}
+	}
+	name = result.String()
+	name = strings.Trim(name, "-")
+	if name == "" {
+		name = "kgen"
+	}
+	return name
+}
+
+// helmReleaseExists checks if a Helm release is already installed in a namespace.
+func helmReleaseExists(release, namespace string) bool {
+	out, err := helmOutput("list", "--namespace", namespace, "--short")
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == release {
+			return true
+		}
+	}
+	return false
 }

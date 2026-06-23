@@ -22,6 +22,8 @@ KGen helps developers, DevOps, and Platform Engineers establish consistent Kuber
 - **Resource Explainer**: Run `kgen explain` to see functional descriptions of Kubernetes resources in clear, readable terms.
 - **Chart Diff**: Run `kgen diff` to compare two generated Helm chart directories and see exactly what changed.
 - **Template Preview**: Run `kgen preview` to render and display Helm chart templates in the terminal without writing to disk.
+- **One-Click Deploy**: Run `kgen deploy` to install or upgrade a Helm chart directly to your Kubernetes cluster via Helm CLI.
+- **Release Status**: Run `kgen status` to check the health and status of a deployed release.
 
 ---
 
@@ -148,6 +150,67 @@ If no directory is specified, KGen will auto-select or let you choose from `~/kg
 Go-template files (Chart.yaml, values.yaml) are rendered with default values;
 static template files (templates/*.yaml) are displayed as-is.
 
+### 9. Deploy to Kubernetes (`kgen deploy`)
+
+To deploy a generated Helm chart to your Kubernetes cluster:
+```bash
+kgen deploy [chart-directory]
+```
+
+If the release already exists, KGen will perform an upgrade. Otherwise, it performs a fresh install.
+
+Specify a namespace, release name, or override values:
+```bash
+kgen deploy ./my-chart -n production -r my-app-release
+kgen deploy ./my-chart --set image.tag=v2 --set replicaCount=5
+kgen deploy ./my-chart -f overrides.yaml --wait --timeout 10m
+```
+
+Dry-run to preview what would be deployed:
+```bash
+kgen deploy ./my-chart --dry-run
+```
+
+If `chart-directory` is omitted, KGen will auto-select from `~/kgen/`.
+
+**Prerequisite**: Helm CLI must be installed and available in your PATH.
+
+### 10. Undeploy from Kubernetes (`kgen undeploy`)
+
+To uninstall a Helm release from your cluster:
+```bash
+kgen undeploy [chart-directory]
+```
+
+Specify namespace and release name:
+```bash
+kgen undeploy ./my-chart -n production -r my-app-release
+```
+
+Skip the confirmation prompt:
+```bash
+kgen undeploy ./my-chart -y
+```
+
+Dry-run to preview what would be uninstalled:
+```bash
+kgen undeploy ./my-chart --dry-run
+```
+
+### 11. Check Release Status (`kgen status`)
+
+To view the status of a deployed Helm release:
+```bash
+kgen status [chart-directory]
+```
+
+Specify namespace and release name:
+```bash
+kgen status ./my-chart -n production -r my-app-release
+```
+
+If `chart-directory` is omitted, KGen will auto-select from `~/kgen/`.
+
 ---
 
 ## Project Structure
@@ -156,7 +219,8 @@ static template files (templates/*.yaml) are displayed as-is.
 kgen/
 ├── cmd/
 │   ├── charts.go      # Shared chart listing, selection, and file scanning helpers
-│   ├── common.go      # Shared helpers (confirmation, error printing)
+│   ├── common.go      # Shared helpers (confirmation, error printing, helm utils)
+│   ├── deploy.go      # 'kgen deploy', 'kgen undeploy', 'kgen status' commands
 │   ├── diff.go        # 'kgen diff' command
 │   ├── preview.go     # 'kgen preview' command
 │   ├── root.go        # Cobra root command (includes --version flag)
@@ -172,6 +236,7 @@ kgen/
 │   │   └── templates.go # Helm templates catalog
 │   ├── tui/
 │   │   ├── styles.go    # Lipgloss styling tokens
+│   │   ├── listmodel.go # Reusable cursor-based list Bubble Tea model
 │   │   ├── selector.go  # File selector/editor Bubble Tea TUI
 │   │   ├── chartlist.go # Chart folder selection Bubble Tea TUI
 │   │   └── wizard.go    # Bubble Tea TUI implementation
