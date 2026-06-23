@@ -29,8 +29,8 @@ func validateStorageSize(s string, defaultVal string) string {
 	if s == "" {
 		return defaultVal
 	}
-	re := regexp.MustCompile(`^\d+(Gi|Mi|Ti)$`)
-	if re.MatchString(s) {
+	var storageSizeRe = regexp.MustCompile(`^\d+(Gi|Mi|Ti)$`)
+	if storageSizeRe.MatchString(s) {
 		return s
 	}
 	return defaultVal
@@ -175,9 +175,9 @@ var CategoryItems = map[string][]string{
 }
 
 type WizardModel struct {
-	Step        Step
-	Profile     string
-	OutputDir   string
+	Step      Step
+	Profile   string
+	OutputDir string
 
 	// Navigation Queue
 	ActiveSteps      []Step
@@ -213,11 +213,11 @@ type WizardModel struct {
 	SaNameInput          textinput.Model
 
 	// Step: RBAC Presets
-	SelectedRbacLevel   int // 0: Read Only, 1: Namespace Admin, 2: Custom
-	RbacResources       []string
-	SelectedRbacRes     map[string]bool
-	RbacCursor          int
-	RbacState           RbacState
+	SelectedRbacLevel int // 0: Read Only, 1: Namespace Admin, 2: Custom
+	RbacResources     []string
+	SelectedRbacRes   map[string]bool
+	RbacCursor        int
+	RbacState         RbacState
 
 	// Step: Ingress TLS suggested
 	IngressTlsCreate   int // 0: Yes, 1: No
@@ -677,6 +677,11 @@ func (m *WizardModel) updateStorageClassInfo(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			if m.ActiveStorageInput == 1 {
+				// Validate storage class name before proceeding.
+				storageClass := strings.TrimSpace(m.StorageInputs[0].Value())
+				if storageClass == "" {
+					m.StorageInputs[0].SetValue("standard")
+				}
 				// Validate storage size before proceeding.
 				size := validateStorageSize(m.StorageInputs[1].Value(), "10Gi")
 				m.StorageInputs[1].SetValue(size)
@@ -1376,8 +1381,13 @@ func (m *WizardModel) GetConfig() (generator.Config, string) {
 		}
 	}
 
+	appName := strings.TrimSpace(m.Inputs[0].Value())
+	if appName == "" {
+		appName = "my-app"
+	}
+
 	cfg := generator.Config{
-		AppName:         m.Inputs[0].Value(),
+		AppName:         appName,
 		Namespace:       m.Inputs[1].Value(),
 		ImageRepository: repo,
 		ImageTag:        tag,
@@ -1412,40 +1422,40 @@ func (m *WizardModel) GetConfig() (generator.Config, string) {
 		NetworkPolicyPreset: netpolPresetNames[m.SelectedNetPolPreset],
 
 		// File generation toggles
-		GenerateDeployment:         m.SelectedRes["Deployment"],
-		GenerateService:            m.SelectedRes["Service"],
-		GenerateIngress:            m.SelectedRes["Ingress"],
-		GenerateGateway:            m.SelectedRes["Gateway API"],
-		GenerateConfigMap:          m.SelectedRes["ConfigMap"],
-		GenerateSecret:             m.SelectedRes["Secret"],
-		GenerateExternalSecret:     m.SelectedRes["ExternalSecret"],
-		GenerateSealedSecret:       m.SelectedRes["SealedSecret"],
-		GenerateHPA:                m.SelectedRes["HPA"],
-		GenerateServiceMonitor:     m.SelectedRes["ServiceMonitor"],
-		GeneratePDB:                m.SelectedRes["PDB"],
-		GenerateVPA:                m.SelectedRes["VPA"],
-		GenerateKEDA:               m.SelectedRes["KEDA"],
-		GenerateStatefulSet:        m.SelectedRes["StatefulSet"],
-		GenerateCronJob:            m.SelectedRes["CronJob"],
-		GenerateArgoCD:             m.SelectedRes["ArgoCD Application"],
-		GenerateIstio:              m.SelectedRes["Istio VirtualService"],
-		GeneratePVC:                m.SelectedRes["PersistentVolumeClaim"],
-		GenerateNetworkPolicy:      m.SelectedRes["NetworkPolicy"],
-		GenerateDaemonSet:          m.SelectedRes["DaemonSet"],
-		GenerateJob:                m.SelectedRes["Job"],
-		GenerateServiceAccount:     m.SelectedRes["ServiceAccount"],
-		GenerateRbac:               m.SelectedRes["Role"] || m.SelectedRes["RoleBinding"] || m.SelectedRes["ClusterRole"] || m.SelectedRes["ClusterRoleBinding"],
-		GenerateRole:               m.SelectedRes["Role"],
-		GenerateRoleBinding:        m.SelectedRes["RoleBinding"],
-		GenerateClusterRole:        m.SelectedRes["ClusterRole"],
-		GenerateClusterRoleBinding: m.SelectedRes["ClusterRoleBinding"],
-		GeneratePriorityClass:      m.SelectedRes["Priority Class"],
-		GeneratePodMonitor:         m.SelectedRes["PodMonitor"],
-		GeneratePrometheusRule:     m.SelectedRes["PrometheusRule"],
-		GenerateGrafanaDashboard:   m.SelectedRes["GrafanaDashboard"],
-		GenerateArgoCDSet:          m.SelectedRes["ArgoCD ApplicationSet"],
-		GenerateFlux:               m.SelectedRes["Flux HelmRelease"] || m.SelectedRes["Flux Kustomization"],
-		GeneratePodAntiAffinity:   m.SelectedRes["Pod Anti Affinity"] || qualityNames[m.SelectedQuality] == "enterprise",
+		GenerateDeployment:                m.SelectedRes["Deployment"],
+		GenerateService:                   m.SelectedRes["Service"],
+		GenerateIngress:                   m.SelectedRes["Ingress"],
+		GenerateGateway:                   m.SelectedRes["Gateway API"],
+		GenerateConfigMap:                 m.SelectedRes["ConfigMap"],
+		GenerateSecret:                    m.SelectedRes["Secret"],
+		GenerateExternalSecret:            m.SelectedRes["ExternalSecret"],
+		GenerateSealedSecret:              m.SelectedRes["SealedSecret"],
+		GenerateHPA:                       m.SelectedRes["HPA"],
+		GenerateServiceMonitor:            m.SelectedRes["ServiceMonitor"],
+		GeneratePDB:                       m.SelectedRes["PDB"],
+		GenerateVPA:                       m.SelectedRes["VPA"],
+		GenerateKEDA:                      m.SelectedRes["KEDA"],
+		GenerateStatefulSet:               m.SelectedRes["StatefulSet"],
+		GenerateCronJob:                   m.SelectedRes["CronJob"],
+		GenerateArgoCD:                    m.SelectedRes["ArgoCD Application"],
+		GenerateIstio:                     m.SelectedRes["Istio VirtualService"],
+		GeneratePVC:                       m.SelectedRes["PersistentVolumeClaim"],
+		GenerateNetworkPolicy:             m.SelectedRes["NetworkPolicy"],
+		GenerateDaemonSet:                 m.SelectedRes["DaemonSet"],
+		GenerateJob:                       m.SelectedRes["Job"],
+		GenerateServiceAccount:            m.SelectedRes["ServiceAccount"],
+		GenerateRbac:                      m.SelectedRes["Role"] || m.SelectedRes["RoleBinding"] || m.SelectedRes["ClusterRole"] || m.SelectedRes["ClusterRoleBinding"],
+		GenerateRole:                      m.SelectedRes["Role"],
+		GenerateRoleBinding:               m.SelectedRes["RoleBinding"],
+		GenerateClusterRole:               m.SelectedRes["ClusterRole"],
+		GenerateClusterRoleBinding:        m.SelectedRes["ClusterRoleBinding"],
+		GeneratePriorityClass:             m.SelectedRes["Priority Class"],
+		GeneratePodMonitor:                m.SelectedRes["PodMonitor"],
+		GeneratePrometheusRule:            m.SelectedRes["PrometheusRule"],
+		GenerateGrafanaDashboard:          m.SelectedRes["GrafanaDashboard"],
+		GenerateArgoCDSet:                 m.SelectedRes["ArgoCD ApplicationSet"],
+		GenerateFlux:                      m.SelectedRes["Flux HelmRelease"] || m.SelectedRes["Flux Kustomization"],
+		GeneratePodAntiAffinity:           m.SelectedRes["Pod Anti Affinity"] || qualityNames[m.SelectedQuality] == "enterprise",
 		GenerateTopologySpreadConstraints: m.SelectedRes["Topology Spread Constraints"] || qualityNames[m.SelectedQuality] == "enterprise",
 	}
 

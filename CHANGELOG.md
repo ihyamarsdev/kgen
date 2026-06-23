@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.1.9] - 2026-06-23
 
 ### Added
-- **Input validation**: Port (1-65535), image tag (auto-append `:latest`), storage size (pattern validation)
+- **Input validation**: Port (1-65535), image tag (auto-append `:latest`), storage size (pattern validation), storage class name
 
 ## [v0.1.8] - 2026-06-23
 
@@ -25,17 +25,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.1.7] - 2026-06-23
 
 ### Added
-- **`kgen create --force`**: Overwrite existing output directories
+- **`kgen create --force`**: Overwrite existing output directories (cleans stale files)
 - **`kgen validate --strict`**: Exit code 1 on warnings for CI/CD quality gates
 - **Styled help templates** for all subcommands (not just root)
-- **SHA256 checksum verification** in `install.sh`
-- **Auto-add `~/.local/bin` to PATH** when installed locally without sudo
+- **SHA256 checksum verification** in `install.sh` (hard fail if hash tools missing)
+- **Auto-add `~/.local/bin` to PATH** when installed locally (shell-aware)
 - **35 English resource descriptions** in `kgen explain` (was 9 Indonesian)
+- **`Chart.yaml` and `values.yaml`** now included in the edit menu
 
 ### Changed
 - **Table-driven generator**: Replaced ~200 lines of repetitive `if` blocks
 - **Table-driven validator**: Replaced 5 repetitive PASS/WARN blocks
 - **Flux API update**: `v2beta1→v2`, `v1beta2→v1`
+- **CHANGELOG**: Fixed duplicate entries (diff/preview listed in both v0.1.5 and v0.1.6)
 
 ### Fixed
 - Replace O(n²) bubble sort with `sort.Strings()` in preview
@@ -43,13 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing DaemonSet/Job in tree output
 - `promptChartChoice` error message now shows valid range
 - Dead code removal (`_ = successStyle`)
+- Error messages go to stderr consistently
+- `%v` printing `<nil>` when error is nil
 
 ## [v0.1.6] - 2026-06-23
 
 ### Added
 - **`kgen diff`**: Compare two Helm chart directories with color-coded unified diff
 - **`kgen preview`**: Render and display Helm chart templates in terminal
-- **`--strict` flag** for `kgen validate` (CI/CD quality gate)
 
 ### Changed
 - **Module path**: `kgen` → `github.com/ihyamarsdev/kgen` (enables `go install`)
@@ -64,9 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.1.5] - 2026-06-23
 
-### Added
-- **`kgen diff`**: Compare two Helm chart directories
-- **`kgen preview`**: Render and display chart templates in terminal
+*(Note: diff and preview were moved to v0.1.6 — this version was superseded)*
 
 ## [v0.1.4] - 2026-06-23
 

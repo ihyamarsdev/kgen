@@ -51,6 +51,7 @@ var editCmd = &cobra.Command{
 					resModel, ok := mRes.(*tui.ChartListModel)
 					if !ok || resModel.Quitted || resModel.SelectedChart == "" {
 						// User cancelled
+						fmt.Println("Edit cancelled.")
 						return
 					}
 					targetDir = filepath.Join(homeDir(), "kgen", resModel.SelectedChart)
@@ -66,8 +67,12 @@ var editCmd = &cobra.Command{
 
 		// Scan for all files recursively
 		files, err := scanAllChartFiles(targetDir)
-		if err != nil || len(files) == 0 {
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error scanning files in '%s': %v\n", targetDir, err)
+			os.Exit(1)
+		}
+		if len(files) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: No editable files found in '%s'\n", targetDir)
 			os.Exit(1)
 		}
 
@@ -86,7 +91,7 @@ var editCmd = &cobra.Command{
 		// Launcher loop
 		editor := findEditor()
 		if editor == "" {
-			fmt.Println("Error: No terminal editor ($EDITOR, nano, vim, vi) found in path.")
+			printErr("Error: No terminal editor ($EDITOR, nano, vim, vi) found in path.")
 			os.Exit(1)
 		}
 

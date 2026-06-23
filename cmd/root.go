@@ -44,7 +44,7 @@ func init() {
 		return tui.GrayStyle.Render(desc)
 	})
 
-	helpTemplate := `{{styleHeading "Description:"}}
+	rootCmd.SetHelpTemplate(`{{styleHeading "Description:"}}
   {{if .Long}}{{.Long}}{{else}}{{.Short}}{{end}}
 
 {{styleHeading "Usage:"}}
@@ -60,21 +60,7 @@ func init() {
 {{styleDescription (.InheritedFlags.FlagUsages | trimTrailingWhitespaces)}}
 
 {{end}}Use "{{.CommandPath}} [command] --help" for more information about a command.
-`
-	// Apply styled help to root command and all future subcommands.
-	rootCmd.SetHelpTemplate(helpTemplate)
-	cobra.AddTemplateFunc("styleHeading", func(s string) string {
-		return tui.HeaderStyle.Render(s)
-	})
-	cobra.AddTemplateFunc("styleCommand", func(name string) string {
-		return tui.ActiveInputStyle.Render(name)
-	})
-	cobra.AddTemplateFunc("styleDescription", func(desc string) string {
-		return tui.GrayStyle.Render(desc)
-	})
-
-	// Propagate help template to all subcommands via persistent post-run.
-	// This is done by wrapping Execute() — see below.
+`)
 }
 
 // Execute applies the styled help template to all subcommands before running.
@@ -89,24 +75,7 @@ func Execute() {
 
 // applyHelpToAll recursively applies the styled help template to every command.
 func applyHelpToAll(cmd *cobra.Command) {
-	helpTemplate := `{{styleHeading "Description:"}}
-  {{if .Long}}{{.Long}}{{else}}{{.Short}}{{end}}
-
-{{styleHeading "Usage:"}}
-  {{if .Runnable}}{{styleCommand .UseLine}}{{end}}{{if .HasAvailableSubCommands}}{{styleCommand .CommandPath}} [command]{{end}}
-
-{{if .HasAvailableSubCommands}}{{styleHeading "Available Commands:"}}
-{{range .Commands}}{{if (and .IsAvailableCommand (not (eq .Name "help")))}}  {{styleCommand (rpad .Name 12)}} {{styleDescription .Short}}
-{{end}}{{end}}
-{{end}}{{if .HasAvailableLocalFlags}}{{styleHeading "Flags:"}}
-{{styleDescription (.LocalFlags.FlagUsages | trimTrailingWhitespaces)}}
-
-{{end}}{{if .HasAvailableInheritedFlags}}{{styleHeading "Global Flags:"}}
-{{styleDescription (.InheritedFlags.FlagUsages | trimTrailingWhitespaces)}}
-
-{{end}}Use "{{.CommandPath}} [command] --help" for more information about a command.
-`
-	cmd.SetHelpTemplate(helpTemplate)
+	cmd.SetHelpTemplate(rootCmd.HelpTemplate())
 	for _, sub := range cmd.Commands() {
 		applyHelpToAll(sub)
 	}

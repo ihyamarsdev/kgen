@@ -20,7 +20,7 @@ for standard best practices (Limits, Requests, Probes, Security Context).
 
 With --strict, the command exits with code 1 when any warnings are found,
 making it suitable for CI/CD quality gates.`,
-	Args:  cobra.MaximumNArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		path := "."
 		if len(args) > 0 {

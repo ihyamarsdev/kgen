@@ -37,8 +37,12 @@ func promptChartChoice(charts []string) string {
 		printErr("Invalid selection. Please enter a number between 1 and %d.", len(charts))
 		os.Exit(1)
 	}
-	homeDir, _ := os.UserHomeDir()
-	return filepath.Join(homeDir, "kgen", charts[choice-1])
+	hd, err := os.UserHomeDir()
+	if err != nil {
+		printErr("Error: could not determine home directory: %v", err)
+		os.Exit(1)
+	}
+	return filepath.Join(hd, "kgen", charts[choice-1])
 }
 
 // resolveChartPath resolves a chart path:
@@ -85,6 +89,11 @@ func scanAllChartFiles(dir string) (map[string]string, error) {
 			rel, err := filepath.Rel(dir, path)
 			if err == nil && !isHidden(rel) {
 				content, err := os.ReadFile(path)
+			if err != nil {
+				// Silently skip unreadable files (broken symlinks, permissions).
+				// The caller will see this file missing from the result.
+				return nil
+			}
 				if err == nil {
 					files[rel] = string(content)
 				}

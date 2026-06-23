@@ -28,51 +28,51 @@ type Config struct {
 	SecretBackend string
 
 	// Smart Wizard Inputs
-	StorageClass         string
-	StorageSize          string
-	StorageAccessMode    string
-	ServiceAccountName   string
-	RbacLevel            string
-	RbacCustomResources  []string
-	IngressTlsEnabled    bool
-	IngressTlsProvider   string
-	NetworkPolicyPreset  string
+	StorageClass        string
+	StorageSize         string
+	StorageAccessMode   string
+	ServiceAccountName  string
+	RbacLevel           string
+	RbacCustomResources []string
+	IngressTlsEnabled   bool
+	IngressTlsProvider  string
+	NetworkPolicyPreset string
 
 	// Resources to generate
-	GenerateDeployment        bool
-	GenerateService           bool
-	GenerateIngress           bool
-	GenerateGateway           bool
-	GenerateConfigMap         bool
-	GenerateSecret            bool
-	GenerateExternalSecret    bool
-	GenerateSealedSecret      bool
-	GenerateHPA               bool
-	GenerateServiceMonitor    bool
-	GeneratePDB               bool
-	GenerateVPA               bool
-	GenerateKEDA              bool
-	GenerateStatefulSet       bool
-	GenerateCronJob           bool
-	GenerateArgoCD            bool
-	GenerateIstio             bool
-	GeneratePVC               bool
-	GenerateNetworkPolicy     bool
-	GenerateDaemonSet         bool
-	GenerateJob               bool
-	GenerateServiceAccount    bool
-	GenerateRbac              bool // Role and RoleBinding
-	GenerateRole              bool
-	GenerateRoleBinding       bool
-	GenerateClusterRole       bool
-	GenerateClusterRoleBinding bool
-	GeneratePriorityClass     bool
-	GeneratePodMonitor        bool
-	GeneratePrometheusRule    bool
-	GenerateGrafanaDashboard  bool
-	GenerateArgoCDSet         bool
-	GenerateFlux              bool
-	GeneratePodAntiAffinity   bool
+	GenerateDeployment                bool
+	GenerateService                   bool
+	GenerateIngress                   bool
+	GenerateGateway                   bool
+	GenerateConfigMap                 bool
+	GenerateSecret                    bool
+	GenerateExternalSecret            bool
+	GenerateSealedSecret              bool
+	GenerateHPA                       bool
+	GenerateServiceMonitor            bool
+	GeneratePDB                       bool
+	GenerateVPA                       bool
+	GenerateKEDA                      bool
+	GenerateStatefulSet               bool
+	GenerateCronJob                   bool
+	GenerateArgoCD                    bool
+	GenerateIstio                     bool
+	GeneratePVC                       bool
+	GenerateNetworkPolicy             bool
+	GenerateDaemonSet                 bool
+	GenerateJob                       bool
+	GenerateServiceAccount            bool
+	GenerateRbac                      bool // Role and RoleBinding
+	GenerateRole                      bool
+	GenerateRoleBinding               bool
+	GenerateClusterRole               bool
+	GenerateClusterRoleBinding        bool
+	GeneratePriorityClass             bool
+	GeneratePodMonitor                bool
+	GeneratePrometheusRule            bool
+	GenerateGrafanaDashboard          bool
+	GenerateArgoCDSet                 bool
+	GenerateFlux                      bool
+	GeneratePodAntiAffinity           bool
 	GenerateTopologySpreadConstraints bool
 }
 

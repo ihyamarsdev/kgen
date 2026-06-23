@@ -85,11 +85,11 @@ func TestValidateDir(t *testing.T) {
 	}
 
 	for _, res := range resultsProd {
-			if res.Status != "PASS" {
-				t.Errorf("Expected PASS for check %s, got %s: %s", res.Check, res.Status, res.Message)
-			}
+		if res.Status != "PASS" {
+			t.Errorf("Expected PASS for check %s, got %s: %s", res.Check, res.Status, res.Message)
 		}
 	}
+}
 
 func TestValidateDir_FallbackPath(t *testing.T) {
 	// Test validation without values.yaml — the string-based fallback should be used.

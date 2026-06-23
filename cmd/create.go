@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	profileFlag  string
-	outputFlag   string
-	forceFlag    bool
+	profileFlag string
+	outputFlag  string
+	forceFlag   bool
 )
 
 // templateFile defines a file that may be generated for a Helm chart.
@@ -87,7 +87,9 @@ func printFileTree(files []templateFile) {
 
 // generatedFilePaths returns only the paths of enabled template files (for the edit menu).
 func generatedFilePaths(files []templateFile) []string {
+	// Include root-level files so users can edit Chart.yaml and values.yaml.
 	var paths []string
+	paths = append(paths, "Chart.yaml", "values.yaml")
 	for _, f := range files {
 		if f.enabled {
 			paths = append(paths, "templates/"+f.name)
@@ -149,10 +151,17 @@ var createCmd = &cobra.Command{
 		}
 
 		// Check if target directory already exists
-		if _, err := os.Stat(targetDir); err == nil && !forceFlag {
-			fmt.Fprintf(os.Stderr, "Error: Directory '%s' already exists.\n", targetDir)
-			fmt.Println("Use --force (-f) to overwrite, or specify a different output directory with -o.")
-			os.Exit(1)
+		if _, err := os.Stat(targetDir); err == nil {
+			if !forceFlag {
+				fmt.Fprintf(os.Stderr, "Error: Directory '%s' already exists.\n", targetDir)
+				fmt.Println("Use --force (-f) to overwrite, or specify a different output directory with -o.")
+				os.Exit(1)
+			}
+			// Clean the existing directory to avoid stale files.
+			if err := os.RemoveAll(targetDir); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: failed to remove existing directory: %v\n", err)
+				os.Exit(1)
+			}
 		}
 
 		fmt.Printf("\nGenerating Helm chart for '%s' in '%s'...\n", appName, targetDir)

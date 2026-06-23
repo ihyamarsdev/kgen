@@ -18,12 +18,12 @@ import (
 //
 // All methods use pointer receivers per AGENTS.md guidelines.
 type ListModel struct {
-	Items          []string
-	Cursor         int
-	SelectedIndex  int // -1 when no item selected, index of selected item otherwise
-	SelectedItem   string
-	Quitted        bool
-	ItemCount      int // len(Items) — virtual items don't count
+	Items         []string
+	Cursor        int
+	SelectedIndex int // -1 when no item selected, index of selected item otherwise
+	SelectedItem  string
+	Quitted       bool
+	ItemCount     int // len(Items) — virtual items don't count
 
 	// Optional footer button.
 	FooterText     string

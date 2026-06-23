@@ -245,12 +245,16 @@ func sudoReplaceBinary(src, dest string) error {
 }
 
 // copyFile copies src to dest, preserving dest's existing mode (or 0o755).
-func copyFile(src, dest string) error {
+func copyFile(src, dest string) (err error) {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() {
+		if cerr := in.Close(); err == nil {
+			err = cerr
+		}
+	}()
 
 	mode := os.FileMode(0o755)
 	if info, err := os.Stat(dest); err == nil {
@@ -260,9 +264,19 @@ func copyFile(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	return err
+
+	if _, err = io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	if err = out.Sync(); err != nil {
+		out.Close()
+		return err
+	}
+	if err = out.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // isWritableDir reports whether the current user can write to dir.
@@ -271,7 +285,7 @@ func isWritableDir(dir string) bool {
 	if err != nil {
 		return false
 	}
+	defer os.Remove(f.Name())
 	_ = f.Close()
-	_ = os.Remove(f.Name())
 	return true
 }
