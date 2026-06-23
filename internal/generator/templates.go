@@ -1154,7 +1154,7 @@ spec:
 `
 
 const FluxHelmReleaseTemplate = `{{- if .Values.flux.enabled -}}
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
+apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: {{ include "kgen.fullname" . }}
@@ -1175,7 +1175,7 @@ spec:
 `
 
 const FluxKustomizationTemplate = `{{- if .Values.flux.enabled -}}
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: {{ include "kgen.fullname" . }}

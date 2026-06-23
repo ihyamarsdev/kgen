@@ -34,7 +34,7 @@ func promptChartChoice(charts []string) string {
 	var choice int
 	_, err := fmt.Scanf("%d", &choice)
 	if err != nil || choice < 1 || choice > len(charts) {
-		printErr("Invalid selection.")
+		printErr("Invalid selection. Please enter a number between 1 and %d.", len(charts))
 		os.Exit(1)
 	}
 	homeDir, _ := os.UserHomeDir()

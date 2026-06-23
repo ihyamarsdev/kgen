@@ -109,81 +109,29 @@ func ValidateDir(dirPath string) ([]ValidationResult, error) {
 		}
 	}
 
-	results := []ValidationResult{}
-
-	// Resource Limits
-	if checks.HasLimits {
-		results = append(results, ValidationResult{
-			Check:   "Resource Limits",
-			Status:  "PASS",
-			Message: "Resource limit configured",
-		})
-	} else {
-		results = append(results, ValidationResult{
-			Check:   "Resource Limits",
-			Status:  "WARN",
-			Message: "No resource limit configured",
-		})
+	// Table-driven result building eliminates repetitive if/else blocks.
+	type checkDef struct {
+		name    string
+		passed  bool
+		passMsg string
+		warnMsg string
 	}
 
-	// Resource Requests
-	if checks.HasRequests {
-		results = append(results, ValidationResult{
-			Check:   "Resource Requests",
-			Status:  "PASS",
-			Message: "Resource request configured",
-		})
-	} else {
-		results = append(results, ValidationResult{
-			Check:   "Resource Requests",
-			Status:  "WARN",
-			Message: "No resource request configured",
-		})
+	defs := []checkDef{
+		{"Resource Limits", checks.HasLimits, "Resource limit configured", "No resource limit configured"},
+		{"Resource Requests", checks.HasRequests, "Resource request configured", "No resource request configured"},
+		{"Liveness Probe", checks.HasLivenessProbe, "Liveness probe found", "No liveness probe found"},
+		{"Readiness Probe", checks.HasReadinessProbe, "Readiness probe found", "No readiness probe found"},
+		{"Security Context", checks.HasSecurityCtx, "Security context configured", "No security context configured"},
 	}
 
-	// Liveness Probe
-	if checks.HasLivenessProbe {
-		results = append(results, ValidationResult{
-			Check:   "Liveness Probe",
-			Status:  "PASS",
-			Message: "Liveness probe found",
-		})
-	} else {
-		results = append(results, ValidationResult{
-			Check:   "Liveness Probe",
-			Status:  "WARN",
-			Message: "No liveness probe found",
-		})
-	}
-
-	// Readiness Probe
-	if checks.HasReadinessProbe {
-		results = append(results, ValidationResult{
-			Check:   "Readiness Probe",
-			Status:  "PASS",
-			Message: "Readiness probe found",
-		})
-	} else {
-		results = append(results, ValidationResult{
-			Check:   "Readiness Probe",
-			Status:  "WARN",
-			Message: "No readiness probe found",
-		})
-	}
-
-	// Security Context
-	if checks.HasSecurityCtx {
-		results = append(results, ValidationResult{
-			Check:   "Security Context",
-			Status:  "PASS",
-			Message: "Security context configured",
-		})
-	} else {
-		results = append(results, ValidationResult{
-			Check:   "Security Context",
-			Status:  "WARN",
-			Message: "No security context configured",
-		})
+	results := make([]ValidationResult, 0, len(defs))
+	for _, d := range defs {
+		status, msg := "PASS", d.passMsg
+		if !d.passed {
+			status, msg = "WARN", d.warnMsg
+		}
+		results = append(results, ValidationResult{Check: d.name, Status: status, Message: msg})
 	}
 
 	return results, nil

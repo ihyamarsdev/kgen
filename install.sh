@@ -34,6 +34,7 @@ esac
 # Formulate download filename and URL
 BINARY_NAME="kgen-${OS}-${ARCH}"
 DOWNLOAD_URL="https://github.com/${OWNER}/${REPO}/releases/download/${VERSION}/${BINARY_NAME}"
+CHECKSUM_URL="${DOWNLOAD_URL}.sha256"
 
 echo "Installing KGen ${VERSION} for ${OS}/${ARCH}..."
 echo "Downloading from: ${DOWNLOAD_URL}"
@@ -43,6 +44,23 @@ TMP_DIR=$(mktemp -d)
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
 curl -sSfL "${DOWNLOAD_URL}" -o "${TMP_DIR}/kgen"
+
+# Verify checksum if available.
+if curl -sSfL -o /dev/null -w "%{http_code}" "${CHECKSUM_URL}" | grep -q "200"; then
+  curl -sSfL "${CHECKSUM_URL}" -o "${TMP_DIR}/${BINARY_NAME}.sha256"
+  EXPECTED=$(awk '{print $1}' "${TMP_DIR}/${BINARY_NAME}.sha256")
+  ACTUAL=$(shasum -a 256 "${TMP_DIR}/kgen" 2>/dev/null || sha256sum "${TMP_DIR}/kgen" 2>/dev/null || echo "")
+  ACTUAL_HASH=$(echo "${ACTUAL}" | awk '{print $1}')
+
+  if [ -n "${ACTUAL_HASH}" ] && [ "${ACTUAL_HASH}" != "${EXPECTED}" ]; then
+    echo "Error: Checksum mismatch!"
+    echo "  Expected: ${EXPECTED}"
+    echo "  Actual:   ${ACTUAL_HASH}"
+    echo "The downloaded binary may have been tampered with. Aborting installation."
+    exit 1
+  fi
+  echo "Checksum verified ✓"
+fi
 
 chmod +x "${TMP_DIR}/kgen"
 
@@ -64,6 +82,13 @@ else
     mv "${TMP_DIR}/kgen" "${LOCAL_BIN}/kgen"
     echo "Installed locally to ${LOCAL_BIN}/kgen"
     echo "Make sure ${LOCAL_BIN} is in your PATH."
+    # Add to shell profile if not already present.
+    for rc in ~/.bashrc ~/.zshrc ~/.profile; do
+      if [ -f "${rc}" ] && ! grep -q "${LOCAL_BIN}" "${rc}" 2>/dev/null; then
+        echo "export PATH=\"\$PATH:${LOCAL_BIN}\"" >> "${rc}"
+        echo "Added ${LOCAL_BIN} to PATH in ${rc}"
+      fi
+    done
   fi
 fi
 

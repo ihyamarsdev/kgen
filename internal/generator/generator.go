@@ -76,15 +76,20 @@ type Config struct {
 	GenerateTopologySpreadConstraints bool
 }
 
+// tmplEntry maps a boolean condition to a template content string.
+type tmplEntry struct {
+	enabled  bool
+	template string
+}
+
 func Generate(cfg Config, outputDir string) error {
-	// Create directories:
-	// outputDir/templates
+	// Create directories: outputDir/templates
 	templatesDir := filepath.Join(outputDir, "templates")
 	if err := os.MkdirAll(templatesDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory structure: %w", err)
 	}
 
-	// Helper function to render a template and write to file
+	// renderAndWrite renders a template string with the Config and writes it to a file.
 	renderAndWrite := func(tmplStr, filePath string) error {
 		tmpl, err := template.New(filepath.Base(filePath)).Funcs(template.FuncMap{
 			"quote": func(s string) string {
@@ -104,217 +109,66 @@ func Generate(cfg Config, outputDir string) error {
 		return nil
 	}
 
-	// Write Chart.yaml
+	// Write Chart.yaml and values.yaml (rendered via text/template).
 	if err := renderAndWrite(ChartTemplate, filepath.Join(outputDir, "Chart.yaml")); err != nil {
 		return err
 	}
-
-	// Write values.yaml
 	if err := renderAndWrite(ValuesTemplate, filepath.Join(outputDir, "values.yaml")); err != nil {
 		return err
 	}
 
-	// Write _helpers.tpl
+	// Write _helpers.tpl (static).
 	if err := os.WriteFile(filepath.Join(templatesDir, "_helpers.tpl"), []byte(HelpersTemplate), 0644); err != nil {
 		return fmt.Errorf("failed to write _helpers.tpl: %w", err)
 	}
 
-	// Write conditional template files
-	if cfg.GenerateDeployment {
-		if err := os.WriteFile(filepath.Join(templatesDir, "deployment.yaml"), []byte(DeploymentTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write deployment.yaml: %w", err)
-		}
+	// Table-driven conditional template writing — replaces ~200 lines of repetitive if blocks.
+	templates := []struct {
+		name    string
+		enabled bool
+		content string
+	}{
+		{"deployment.yaml", cfg.GenerateDeployment, DeploymentTemplate},
+		{"service.yaml", cfg.GenerateService, ServiceTemplate},
+		{"ingress.yaml", cfg.GenerateIngress, IngressTemplate},
+		{"gateway.yaml", cfg.GenerateGateway, GatewayTemplate},
+		{"httproute.yaml", cfg.GenerateGateway, HTTPRouteTemplate},
+		{"configmap.yaml", cfg.GenerateConfigMap, ConfigMapTemplate},
+		{"secret.yaml", cfg.GenerateSecret, SecretTemplate},
+		{"externalsecret.yaml", cfg.GenerateExternalSecret, ExternalSecretTemplate},
+		{"sealedsecret.yaml", cfg.GenerateSealedSecret, SealedSecretTemplate},
+		{"hpa.yaml", cfg.GenerateHPA, HPATemplate},
+		{"vpa.yaml", cfg.GenerateVPA, VPATemplate},
+		{"scaledobject.yaml", cfg.GenerateKEDA, ScaledObjectTemplate},
+		{"statefulset.yaml", cfg.GenerateStatefulSet, StatefulSetTemplate},
+		{"cronjob.yaml", cfg.GenerateCronJob, CronJobTemplate},
+		{"daemonset.yaml", cfg.GenerateDaemonSet, DaemonSetTemplate},
+		{"job.yaml", cfg.GenerateJob, JobTemplate},
+		{"application.yaml", cfg.GenerateArgoCD, ArgoApplicationTemplate},
+		{"applicationset.yaml", cfg.GenerateArgoCDSet, ArgoApplicationSetTemplate},
+		{"virtualservice.yaml", cfg.GenerateIstio, IstioVirtualServiceTemplate},
+		{"pvc.yaml", cfg.GeneratePVC, PVCTemplate},
+		{"networkpolicy.yaml", cfg.GenerateNetworkPolicy, NetworkPolicyTemplate},
+		{"servicemonitor.yaml", cfg.GenerateServiceMonitor, ServiceMonitorTemplate},
+		{"podmonitor.yaml", cfg.GeneratePodMonitor, PodMonitorTemplate},
+		{"prometheusrule.yaml", cfg.GeneratePrometheusRule, PrometheusRuleTemplate},
+		{"grafanadashboard.yaml", cfg.GenerateGrafanaDashboard, GrafanaDashboardTemplate},
+		{"pdb.yaml", cfg.GeneratePDB, PdbTemplate},
+		{"priorityclass.yaml", cfg.GeneratePriorityClass, PriorityClassTemplate},
+		{"serviceaccount.yaml", cfg.GenerateServiceAccount, ServiceAccountTemplate},
+		{"role.yaml", cfg.GenerateRole, RoleTemplate},
+		{"rolebinding.yaml", cfg.GenerateRoleBinding, RoleBindingTemplate},
+		{"clusterrole.yaml", cfg.GenerateClusterRole, ClusterRoleTemplate},
+		{"clusterrolebinding.yaml", cfg.GenerateClusterRoleBinding, ClusterRoleBindingTemplate},
+		{"helmrelease.yaml", cfg.GenerateFlux, FluxHelmReleaseTemplate},
+		{"fluxkustomization.yaml", cfg.GenerateFlux, FluxKustomizationTemplate},
 	}
 
-	if cfg.GenerateService {
-		if err := os.WriteFile(filepath.Join(templatesDir, "service.yaml"), []byte(ServiceTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write service.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateIngress {
-		if err := os.WriteFile(filepath.Join(templatesDir, "ingress.yaml"), []byte(IngressTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write ingress.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateGateway {
-		if err := os.WriteFile(filepath.Join(templatesDir, "gateway.yaml"), []byte(GatewayTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write gateway.yaml: %w", err)
-		}
-		if err := os.WriteFile(filepath.Join(templatesDir, "httproute.yaml"), []byte(HTTPRouteTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write httproute.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateConfigMap {
-		if err := os.WriteFile(filepath.Join(templatesDir, "configmap.yaml"), []byte(ConfigMapTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write configmap.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateSecret {
-		if err := os.WriteFile(filepath.Join(templatesDir, "secret.yaml"), []byte(SecretTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write secret.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateExternalSecret {
-		if err := os.WriteFile(filepath.Join(templatesDir, "externalsecret.yaml"), []byte(ExternalSecretTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write externalsecret.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateSealedSecret {
-		if err := os.WriteFile(filepath.Join(templatesDir, "sealedsecret.yaml"), []byte(SealedSecretTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write sealedsecret.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateHPA {
-		if err := os.WriteFile(filepath.Join(templatesDir, "hpa.yaml"), []byte(HPATemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write hpa.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateVPA {
-		if err := os.WriteFile(filepath.Join(templatesDir, "vpa.yaml"), []byte(VPATemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write vpa.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateKEDA {
-		if err := os.WriteFile(filepath.Join(templatesDir, "scaledobject.yaml"), []byte(ScaledObjectTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write scaledobject.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateStatefulSet {
-		if err := os.WriteFile(filepath.Join(templatesDir, "statefulset.yaml"), []byte(StatefulSetTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write statefulset.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateCronJob {
-		if err := os.WriteFile(filepath.Join(templatesDir, "cronjob.yaml"), []byte(CronJobTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write cronjob.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateArgoCD {
-		if err := os.WriteFile(filepath.Join(templatesDir, "application.yaml"), []byte(ArgoApplicationTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write application.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateIstio {
-		if err := os.WriteFile(filepath.Join(templatesDir, "virtualservice.yaml"), []byte(IstioVirtualServiceTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write virtualservice.yaml: %w", err)
-		}
-	}
-
-	if cfg.GeneratePVC {
-		if err := os.WriteFile(filepath.Join(templatesDir, "pvc.yaml"), []byte(PVCTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write pvc.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateNetworkPolicy {
-		if err := os.WriteFile(filepath.Join(templatesDir, "networkpolicy.yaml"), []byte(NetworkPolicyTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write networkpolicy.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateServiceMonitor {
-		if err := os.WriteFile(filepath.Join(templatesDir, "servicemonitor.yaml"), []byte(ServiceMonitorTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write servicemonitor.yaml: %w", err)
-		}
-	}
-
-	if cfg.GeneratePDB {
-		if err := os.WriteFile(filepath.Join(templatesDir, "pdb.yaml"), []byte(PdbTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write pdb.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateDaemonSet {
-		if err := os.WriteFile(filepath.Join(templatesDir, "daemonset.yaml"), []byte(DaemonSetTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write daemonset.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateJob {
-		if err := os.WriteFile(filepath.Join(templatesDir, "job.yaml"), []byte(JobTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write job.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateServiceAccount {
-		if err := os.WriteFile(filepath.Join(templatesDir, "serviceaccount.yaml"), []byte(ServiceAccountTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write serviceaccount.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateRole {
-		if err := os.WriteFile(filepath.Join(templatesDir, "role.yaml"), []byte(RoleTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write role.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateRoleBinding {
-		if err := os.WriteFile(filepath.Join(templatesDir, "rolebinding.yaml"), []byte(RoleBindingTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write rolebinding.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateClusterRole {
-		if err := os.WriteFile(filepath.Join(templatesDir, "clusterrole.yaml"), []byte(ClusterRoleTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write clusterrole.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateClusterRoleBinding {
-		if err := os.WriteFile(filepath.Join(templatesDir, "clusterrolebinding.yaml"), []byte(ClusterRoleBindingTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write clusterrolebinding.yaml: %w", err)
-		}
-	}
-
-	if cfg.GeneratePriorityClass {
-		if err := os.WriteFile(filepath.Join(templatesDir, "priorityclass.yaml"), []byte(PriorityClassTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write priorityclass.yaml: %w", err)
-		}
-	}
-
-	if cfg.GeneratePodMonitor {
-		if err := os.WriteFile(filepath.Join(templatesDir, "podmonitor.yaml"), []byte(PodMonitorTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write podmonitor.yaml: %w", err)
-		}
-	}
-
-	if cfg.GeneratePrometheusRule {
-		if err := os.WriteFile(filepath.Join(templatesDir, "prometheusrule.yaml"), []byte(PrometheusRuleTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write prometheusrule.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateGrafanaDashboard {
-		if err := os.WriteFile(filepath.Join(templatesDir, "grafanadashboard.yaml"), []byte(GrafanaDashboardTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write grafanadashboard.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateArgoCDSet {
-		if err := os.WriteFile(filepath.Join(templatesDir, "applicationset.yaml"), []byte(ArgoApplicationSetTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write applicationset.yaml: %w", err)
-		}
-	}
-
-	if cfg.GenerateFlux {
-		if err := os.WriteFile(filepath.Join(templatesDir, "helmrelease.yaml"), []byte(FluxHelmReleaseTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write helmrelease.yaml: %w", err)
-		}
-		if err := os.WriteFile(filepath.Join(templatesDir, "fluxkustomization.yaml"), []byte(FluxKustomizationTemplate), 0644); err != nil {
-			return fmt.Errorf("failed to write fluxkustomization.yaml: %w", err)
+	for _, t := range templates {
+		if t.enabled {
+			if err := os.WriteFile(filepath.Join(templatesDir, t.name), []byte(t.content), 0644); err != nil {
+				return fmt.Errorf("failed to write %s: %w", t.name, err)
+			}
 		}
 	}
 

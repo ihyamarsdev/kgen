@@ -14,9 +14,87 @@ import (
 )
 
 var (
-	profileFlag string
-	outputFlag  string
+	profileFlag  string
+	outputFlag   string
+	forceFlag    bool
 )
+
+// templateFile defines a file that may be generated for a Helm chart.
+type templateFile struct {
+	name    string
+	enabled bool
+}
+
+// templateFiles returns the canonical list of template files and their enabled
+// status based on the given config.  The order here determines the display
+// order in the generated tree output and the edit menu.
+func templateFiles(cfg generator.Config) []templateFile {
+	return []templateFile{
+		{"deployment.yaml", cfg.GenerateDeployment},
+		{"service.yaml", cfg.GenerateService},
+		{"ingress.yaml", cfg.GenerateIngress},
+		{"gateway.yaml", cfg.GenerateGateway},
+		{"httproute.yaml", cfg.GenerateGateway},
+		{"configmap.yaml", cfg.GenerateConfigMap},
+		{"secret.yaml", cfg.GenerateSecret},
+		{"externalsecret.yaml", cfg.GenerateExternalSecret},
+		{"sealedsecret.yaml", cfg.GenerateSealedSecret},
+		{"hpa.yaml", cfg.GenerateHPA},
+		{"vpa.yaml", cfg.GenerateVPA},
+		{"scaledobject.yaml", cfg.GenerateKEDA},
+		{"statefulset.yaml", cfg.GenerateStatefulSet},
+		{"cronjob.yaml", cfg.GenerateCronJob},
+		{"daemonset.yaml", cfg.GenerateDaemonSet},
+		{"job.yaml", cfg.GenerateJob},
+		{"application.yaml", cfg.GenerateArgoCD},
+		{"applicationset.yaml", cfg.GenerateArgoCDSet},
+		{"helmrelease.yaml", cfg.GenerateFlux},
+		{"fluxkustomization.yaml", cfg.GenerateFlux},
+		{"virtualservice.yaml", cfg.GenerateIstio},
+		{"pvc.yaml", cfg.GeneratePVC},
+		{"networkpolicy.yaml", cfg.GenerateNetworkPolicy},
+		{"servicemonitor.yaml", cfg.GenerateServiceMonitor},
+		{"podmonitor.yaml", cfg.GeneratePodMonitor},
+		{"prometheusrule.yaml", cfg.GeneratePrometheusRule},
+		{"grafanadashboard.yaml", cfg.GenerateGrafanaDashboard},
+		{"pdb.yaml", cfg.GeneratePDB},
+		{"priorityclass.yaml", cfg.GeneratePriorityClass},
+		{"serviceaccount.yaml", cfg.GenerateServiceAccount},
+		{"role.yaml", cfg.GenerateRole},
+		{"rolebinding.yaml", cfg.GenerateRoleBinding},
+		{"clusterrole.yaml", cfg.GenerateClusterRole},
+		{"clusterrolebinding.yaml", cfg.GenerateClusterRoleBinding},
+	}
+}
+
+// printFileTree prints the generated file tree with proper └── for the last item.
+func printFileTree(files []templateFile) {
+	enabled := make([]string, 0, len(files))
+	for _, f := range files {
+		if f.enabled {
+			enabled = append(enabled, f.name)
+		}
+	}
+	lastIdx := len(enabled) - 1
+	for i, name := range enabled {
+		if i == lastIdx {
+			fmt.Printf("    └── %s\n", name)
+		} else {
+			fmt.Printf("    ├── %s\n", name)
+		}
+	}
+}
+
+// generatedFilePaths returns only the paths of enabled template files (for the edit menu).
+func generatedFilePaths(files []templateFile) []string {
+	var paths []string
+	for _, f := range files {
+		if f.enabled {
+			paths = append(paths, "templates/"+f.name)
+		}
+	}
+	return paths
+}
 
 var createCmd = &cobra.Command{
 	Use:   "create",
@@ -63,11 +141,18 @@ var createCmd = &cobra.Command{
 
 		targetDir := outputFlag
 		if targetDir == "" {
-			if homeDir, err := os.UserHomeDir(); err == nil {
-				targetDir = filepath.Join(homeDir, "kgen", appName)
+			if hd := homeDir(); hd != "" {
+				targetDir = filepath.Join(hd, "kgen", appName)
 			} else {
 				targetDir = filepath.Join(".", appName)
 			}
+		}
+
+		// Check if target directory already exists
+		if _, err := os.Stat(targetDir); err == nil && !forceFlag {
+			fmt.Fprintf(os.Stderr, "Error: Directory '%s' already exists.\n", targetDir)
+			fmt.Println("Use --force (-f) to overwrite, or specify a different output directory with -o.")
+			os.Exit(1)
 		}
 
 		fmt.Printf("\nGenerating Helm chart for '%s' in '%s'...\n", appName, targetDir)
@@ -78,7 +163,6 @@ var createCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		successStyle := tui.SuccessStyle.Render
 		titleStyle := tui.TitleStyle.Render
 		fmt.Println("\n" + titleStyle(" Helm Chart Generated Successfully! ") + "\n")
 		fmt.Printf("Created resources in: %s\n", targetDir)
@@ -87,44 +171,9 @@ var createCmd = &cobra.Command{
 		fmt.Println("└── templates/")
 		fmt.Println("    ├── _helpers.tpl")
 
-		printFile := func(name string, exists bool) {
-			if exists {
-				fmt.Printf("    ├── %s\n", name)
-			}
-		}
-
-		printFile("deployment.yaml", cfg.GenerateDeployment)
-		printFile("service.yaml", cfg.GenerateService)
-		printFile("ingress.yaml", cfg.GenerateIngress)
-		printFile("gateway.yaml", cfg.GenerateGateway)
-		printFile("httproute.yaml", cfg.GenerateGateway)
-		printFile("configmap.yaml", cfg.GenerateConfigMap)
-		printFile("secret.yaml", cfg.GenerateSecret)
-		printFile("externalsecret.yaml", cfg.GenerateExternalSecret)
-		printFile("sealedsecret.yaml", cfg.GenerateSealedSecret)
-		printFile("hpa.yaml", cfg.GenerateHPA)
-		printFile("vpa.yaml", cfg.GenerateVPA)
-		printFile("scaledobject.yaml", cfg.GenerateKEDA)
-		printFile("statefulset.yaml", cfg.GenerateStatefulSet)
-		printFile("cronjob.yaml", cfg.GenerateCronJob)
-		printFile("application.yaml", cfg.GenerateArgoCD)
-		printFile("applicationset.yaml", cfg.GenerateArgoCDSet)
-		printFile("helmrelease.yaml", cfg.GenerateFlux)
-		printFile("fluxkustomization.yaml", cfg.GenerateFlux)
-		printFile("virtualservice.yaml", cfg.GenerateIstio)
-		printFile("pvc.yaml", cfg.GeneratePVC)
-		printFile("networkpolicy.yaml", cfg.GenerateNetworkPolicy)
-		printFile("servicemonitor.yaml", cfg.GenerateServiceMonitor)
-		printFile("podmonitor.yaml", cfg.GeneratePodMonitor)
-		printFile("prometheusrule.yaml", cfg.GeneratePrometheusRule)
-		printFile("grafanadashboard.yaml", cfg.GenerateGrafanaDashboard)
-		printFile("pdb.yaml", cfg.GeneratePDB)
-		printFile("priorityclass.yaml", cfg.GeneratePriorityClass)
-		printFile("serviceaccount.yaml", cfg.GenerateServiceAccount)
-		printFile("role.yaml", cfg.GenerateRole)
-		printFile("rolebinding.yaml", cfg.GenerateRoleBinding)
-		printFile("clusterrole.yaml", cfg.GenerateClusterRole)
-		printFile("clusterrolebinding.yaml", cfg.GenerateClusterRoleBinding)
+		// Use single source of truth for template files
+		tmplFiles := templateFiles(cfg)
+		printFileTree(tmplFiles)
 		fmt.Println()
 
 		// Calculate Production Readiness Score
@@ -161,65 +210,10 @@ var createCmd = &cobra.Command{
 			fmt.Println()
 		}
 
-		fmt.Printf("Ready to deploy! You can validate it by running:\n  kgen validate %s\n\n", targetDir)
+		// Offer interactive editing
+		generatedFiles := generatedFilePaths(tmplFiles)
 
-		// Compile the generated files list for editing
-		var generatedFiles []string
-		addGenFile := func(name string, exists bool) {
-			if exists {
-				generatedFiles = append(generatedFiles, name)
-			}
-		}
-
-		// Always generated files
-		generatedFiles = append(generatedFiles, "Chart.yaml", "values.yaml", "templates/_helpers.tpl")
-
-		addGenFile("templates/deployment.yaml", cfg.GenerateDeployment)
-		addGenFile("templates/service.yaml", cfg.GenerateService)
-		addGenFile("templates/ingress.yaml", cfg.GenerateIngress)
-		addGenFile("templates/gateway.yaml", cfg.GenerateGateway)
-		addGenFile("templates/httproute.yaml", cfg.GenerateGateway)
-		addGenFile("templates/configmap.yaml", cfg.GenerateConfigMap)
-		addGenFile("templates/secret.yaml", cfg.GenerateSecret)
-		addGenFile("templates/externalsecret.yaml", cfg.GenerateExternalSecret)
-		addGenFile("templates/sealedsecret.yaml", cfg.GenerateSealedSecret)
-		addGenFile("templates/hpa.yaml", cfg.GenerateHPA)
-		addGenFile("templates/vpa.yaml", cfg.GenerateVPA)
-		addGenFile("templates/scaledobject.yaml", cfg.GenerateKEDA)
-		addGenFile("templates/statefulset.yaml", cfg.GenerateStatefulSet)
-		addGenFile("templates/cronjob.yaml", cfg.GenerateCronJob)
-		addGenFile("templates/application.yaml", cfg.GenerateArgoCD)
-		addGenFile("templates/applicationset.yaml", cfg.GenerateArgoCDSet)
-		addGenFile("templates/helmrelease.yaml", cfg.GenerateFlux)
-		addGenFile("templates/fluxkustomization.yaml", cfg.GenerateFlux)
-		addGenFile("templates/virtualservice.yaml", cfg.GenerateIstio)
-		addGenFile("templates/pvc.yaml", cfg.GeneratePVC)
-		addGenFile("templates/networkpolicy.yaml", cfg.GenerateNetworkPolicy)
-		addGenFile("templates/servicemonitor.yaml", cfg.GenerateServiceMonitor)
-		addGenFile("templates/podmonitor.yaml", cfg.GeneratePodMonitor)
-		addGenFile("templates/prometheusrule.yaml", cfg.GeneratePrometheusRule)
-		addGenFile("templates/grafanadashboard.yaml", cfg.GenerateGrafanaDashboard)
-		addGenFile("templates/pdb.yaml", cfg.GeneratePDB)
-		addGenFile("templates/priorityclass.yaml", cfg.GeneratePriorityClass)
-		addGenFile("templates/serviceaccount.yaml", cfg.GenerateServiceAccount)
-		addGenFile("templates/role.yaml", cfg.GenerateRole)
-		addGenFile("templates/rolebinding.yaml", cfg.GenerateRoleBinding)
-		addGenFile("templates/clusterrole.yaml", cfg.GenerateClusterRole)
-		addGenFile("templates/clusterrolebinding.yaml", cfg.GenerateClusterRoleBinding)
-
-		// Interactive File Editing Loop
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			// Find standard editors: nano, vim, vi
-			for _, e := range []string{"nano", "vim", "vi"} {
-				if _, err := exec.LookPath(e); err == nil {
-					editor = e
-					break
-				}
-			}
-		}
-
-		if editor != "" {
+		if editor := findEditor(); editor != "" {
 			for {
 				selModel := tui.InitialSelectorModel(generatedFiles)
 				selProg := tea.NewProgram(&selModel)
@@ -232,7 +226,6 @@ var createCmd = &cobra.Command{
 					break
 				}
 
-				// Launch Editor
 				filePath := filepath.Join(targetDir, resModel.SelectedFile)
 				cmdEdit := exec.Command(editor, filePath)
 				cmdEdit.Stdin = os.Stdin
@@ -243,13 +236,12 @@ var createCmd = &cobra.Command{
 		} else {
 			fmt.Println("No terminal editor ($EDITOR, nano, vim, vi) found in path. Skipping file edit option.")
 		}
-
-		_ = successStyle // silence compiler if unused
 	},
 }
 
 func init() {
 	createCmd.Flags().StringVarP(&profileFlag, "profile", "p", "dev", "Configuration profile to use: dev, prod")
 	createCmd.Flags().StringVarP(&outputFlag, "output", "o", "", "Output directory path for the Helm chart")
+	createCmd.Flags().BoolVarP(&forceFlag, "force", "f", false, "Overwrite existing output directory")
 	rootCmd.AddCommand(createCmd)
 }
