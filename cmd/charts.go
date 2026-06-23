@@ -95,17 +95,14 @@ func scanAllChartFiles(dir string) (map[string]string, error) {
 	return files, err
 }
 
-// isHidden reports whether any directory component of the path starts with a dot.
-// The filename itself is NOT checked — only parent directories matter.
-// This ensures files like "my-app.deployment.yaml" are not incorrectly excluded.
+// isHidden reports whether any path component (directory or filename) starts
+// with a dot.  This catches both hidden directories like ".git/" and hidden
+// files like ".hidden.yaml", while ensuring normal files like
+// "my-app.deployment.yaml" are NOT hidden (dot is inside the name, not prefix).
 func isHidden(rel string) bool {
-	dir := filepath.Dir(rel)
-	if dir == "." {
-		return false
-	}
-	parts := strings.Split(dir, string(filepath.Separator))
+	parts := strings.Split(rel, string(filepath.Separator))
 	for _, p := range parts {
-		if strings.HasPrefix(p, ".") {
+		if strings.HasPrefix(p, ".") && p != "." {
 			return true
 		}
 	}

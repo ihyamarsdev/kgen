@@ -190,16 +190,32 @@ func downloadFile(url, dest string) error {
 }
 
 // installBinary moves src to dest, escalating via sudo when dest is not writable.
+//
+// To avoid a race condition where the old binary is removed but the new one
+// isn't in place (if killed mid-operation), we download to a temp file in the
+// *same directory* as dest, then use os.Rename() which is atomic on the same
+// filesystem.
 func installBinary(src, dest string) (string, error) {
 	dir := filepath.Dir(dest)
 	if _, err := os.Stat(dir); err != nil {
 		return "", fmt.Errorf("install dir %s does not exist", dir)
 	}
 
-	// If we can write directly, prefer a plain rename (cross-device -> copy fallback).
+	// If we can write directly, download a temp file in the same directory
+	// and atomically rename it into place.
 	if isWritableDir(dir) {
-		if err := replaceBinary(src, dest); err != nil {
+		// Copy src to a temp file in the same directory so os.Rename is atomic.
+		tmpDest := dest + ".tmp"
+		if err := copyFile(src, tmpDest); err != nil {
 			return "", err
+		}
+		if err := os.Chmod(tmpDest, 0o755); err != nil {
+			os.Remove(tmpDest)
+			return "", fmt.Errorf("failed to set permissions: %w", err)
+		}
+		if err := os.Rename(tmpDest, dest); err != nil {
+			os.Remove(tmpDest)
+			return "", fmt.Errorf("failed to replace binary: %w", err)
 		}
 		return dest, nil
 	}
@@ -213,16 +229,6 @@ func installBinary(src, dest string) (string, error) {
 		return "", err
 	}
 	return dest, nil
-}
-
-// replaceBinary performs an in-place replacement of dest with src. It first
-// tries a cheap os.Rename; on cross-device errors it falls back to a copy +
-// chmod, preserving the existing file's permission bits.
-func replaceBinary(src, dest string) error {
-	if err := os.Rename(src, dest); err == nil {
-		return nil
-	}
-	return copyFile(src, dest)
 }
 
 func sudoReplaceBinary(src, dest string) error {
