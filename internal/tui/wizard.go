@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -11,6 +12,43 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// validatePort returns a valid port number or the default (80).
+func validatePort(s string) int {
+	port, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || port < 1 || port > 65535 {
+		return 80
+	}
+	return port
+}
+
+// validateStorageSize checks if the value matches a valid Kubernetes storage
+// size pattern (e.g. "10Gi", "500Mi"). Returns the cleaned value or the default.
+func validateStorageSize(s string, defaultVal string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return defaultVal
+	}
+	re := regexp.MustCompile(`^\d+(Gi|Mi|Ti)$`)
+	if re.MatchString(s) {
+		return s
+	}
+	return defaultVal
+}
+
+// validateImage ensures the image string contains a repository and tag.
+// If the user enters just "nginx", it appends ":latest".
+func validateImage(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "nginx:latest"
+	}
+	// If no tag separator found, append :latest.
+	if !strings.Contains(s, ":") {
+		s += ":latest"
+	}
+	return s
+}
 
 type Step int
 
@@ -382,10 +420,17 @@ func (m *WizardModel) updateAppInfo(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			if m.ActiveInput == len(m.Inputs)-1 {
+				// Validate inputs before proceeding.
 				appName := strings.TrimSpace(m.Inputs[0].Value())
 				if appName == "" {
 					m.Inputs[0].SetValue("my-app")
 				}
+				// Validate image (add :latest if missing tag).
+				image := validateImage(m.Inputs[2].Value())
+				m.Inputs[2].SetValue(image)
+				// Validate port (1-65535, default 80).
+				port := validatePort(m.Inputs[3].Value())
+				m.Inputs[3].SetValue(strconv.Itoa(port))
 				m.ActiveSteps = []Step{StepAppInfo, StepMode}
 				m.CurrentStepIndex = 1
 				m.Step = StepMode
@@ -632,6 +677,9 @@ func (m *WizardModel) updateStorageClassInfo(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			if m.ActiveStorageInput == 1 {
+				// Validate storage size before proceeding.
+				size := validateStorageSize(m.StorageInputs[1].Value(), "10Gi")
+				m.StorageInputs[1].SetValue(size)
 				m.advanceStep()
 				return m, nil
 			}
