@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-06-23
+
+### Added
+- **62 new tests** — 40 wizard tests (validation, GetConfig, step transitions), 22 command-level tests (help flags, version, unknown commands), 1 skipped Args validation test
+- Total test count: 34 → **96 tests** across all packages
+
+### Changed
+- **embed.FS**: Migrate `templates.go` (1191-line string constants) to 37 individual `.yaml`/`.tpl` files via `go:embed templates/*` — enables syntax highlighting, easier editing, compile-time validation
+- **generator.go**: Refactored to use `embed.FS` — `readTemplate()`, `writeStatic()`, updated `renderAndWrite()` to read from embedded filesystem
+- **ci.yml**: Upgrade `golangci-lint-action` from v6 to v8 (Node 20 deprecation fix)
+
+### Removed
+- **templates.go**: 1191 lines of raw string constants replaced by individual template files
+
 ## [v0.3.1] - 2026-06-23
 
 ### Fixed
@@ -166,7 +180,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.0...HEAD
+[v0.4.0]: https://github.com/ihyamarsdev/kgen/compare/v0.3.1...v0.4.0
 [v0.3.1]: https://github.com/ihyamarsdev/kgen/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/ihyamarsdev/kgen/compare/v0.2.1...v0.3.0
 [v0.2.1]: https://github.com/ihyamarsdev/kgen/compare/v0.2.0...v0.2.1
