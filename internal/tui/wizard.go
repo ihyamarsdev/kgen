@@ -68,7 +68,6 @@ const (
 	StepSecretBackend
 	StepServiceType
 	StepConfirm
-	StepDone
 )
 
 type Mode int
@@ -146,6 +145,7 @@ var CategoryItems = map[string][]string{
 		"Service",
 		"Ingress",
 		"Gateway API",
+		"Istio VirtualService",
 		"NetworkPolicy",
 	},
 	"Scaling & Reliability": {
@@ -350,6 +350,41 @@ func (m *WizardModel) regressStep() {
 	}
 }
 
+// buildActiveSteps rebuilds the ActiveSteps slice based on which resources
+// are currently selected. It is called from both Custom mode (on continue)
+// and Simple/Advanced mode (after quality selection) so that intermediate
+// configuration steps appear regardless of mode.
+func (m *WizardModel) buildActiveSteps(baseSteps ...Step) {
+	m.ActiveSteps = make([]Step, len(baseSteps))
+	copy(m.ActiveSteps, baseSteps)
+
+	if m.SelectedRes["StatefulSet"] {
+		m.ActiveSteps = append(m.ActiveSteps, StepStatefulSetStorage)
+	}
+	if m.SelectedRes["PersistentVolumeClaim"] {
+		m.ActiveSteps = append(m.ActiveSteps, StepStorageClassInfo)
+	}
+	if m.SelectedRes["ServiceAccount"] {
+		m.ActiveSteps = append(m.ActiveSteps, StepServiceAccountInfo)
+	}
+	if m.SelectedRes["Role"] || m.SelectedRes["RoleBinding"] || m.SelectedRes["ClusterRole"] || m.SelectedRes["ClusterRoleBinding"] {
+		m.ActiveSteps = append(m.ActiveSteps, StepRbacLevel)
+	}
+	if m.SelectedRes["Ingress"] {
+		m.ActiveSteps = append(m.ActiveSteps, StepIngressTls)
+	}
+	if m.SelectedRes["Service"] {
+		m.ActiveSteps = append(m.ActiveSteps, StepServiceType)
+	}
+	if m.SelectedRes["NetworkPolicy"] {
+		m.ActiveSteps = append(m.ActiveSteps, StepNetworkPolicyPreset)
+	}
+	if m.SelectedRes["ExternalSecret"] {
+		m.ActiveSteps = append(m.ActiveSteps, StepSecretBackend)
+	}
+	m.ActiveSteps = append(m.ActiveSteps, StepConfirm)
+}
+
 func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -544,6 +579,9 @@ func (m *WizardModel) updateQuality(msg tea.Msg) (tea.Model, tea.Cmd) {
 					"NetworkPolicy":  true,
 				}
 			}
+			// Rebuild steps with conditional config steps based on selected resources.
+			// This ensures Simple/Advanced modes also show ServiceType, IngressTls, etc.
+			m.buildActiveSteps(StepAppInfo, StepMode, StepQuality)
 			m.advanceStep()
 		}
 	}
@@ -573,32 +611,7 @@ func (m *WizardModel) updateCustomResources(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.SelectedCategory == len(Categories) {
 					// User clicked [ Continue to Confirm ].
 					// Build the dynamic steps based on what was selected!
-					m.ActiveSteps = []Step{StepAppInfo, StepMode, StepCustomResources}
-					if m.SelectedRes["StatefulSet"] {
-						m.ActiveSteps = append(m.ActiveSteps, StepStatefulSetStorage)
-					}
-					if m.SelectedRes["PersistentVolumeClaim"] {
-						m.ActiveSteps = append(m.ActiveSteps, StepStorageClassInfo)
-					}
-					if m.SelectedRes["ServiceAccount"] {
-						m.ActiveSteps = append(m.ActiveSteps, StepServiceAccountInfo)
-					}
-					if m.SelectedRes["Role"] || m.SelectedRes["RoleBinding"] || m.SelectedRes["ClusterRole"] || m.SelectedRes["ClusterRoleBinding"] {
-						m.ActiveSteps = append(m.ActiveSteps, StepRbacLevel)
-					}
-					if m.SelectedRes["Ingress"] {
-						m.ActiveSteps = append(m.ActiveSteps, StepIngressTls)
-					}
-					if m.SelectedRes["Service"] {
-						m.ActiveSteps = append(m.ActiveSteps, StepServiceType)
-					}
-					if m.SelectedRes["NetworkPolicy"] {
-						m.ActiveSteps = append(m.ActiveSteps, StepNetworkPolicyPreset)
-					}
-					if m.SelectedRes["ExternalSecret"] {
-						m.ActiveSteps = append(m.ActiveSteps, StepSecretBackend)
-					}
-					m.ActiveSteps = append(m.ActiveSteps, StepConfirm)
+					m.buildActiveSteps(StepAppInfo, StepMode, StepCustomResources)
 					m.CurrentStepIndex = 2
 					m.advanceStep()
 				} else {
