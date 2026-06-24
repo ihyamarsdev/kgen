@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.5] - 2026-06-24
+
+### Fixed
+- **Auto-create namespace**: `kgen deploy` now passes `--create-namespace` to Helm so the target namespace is created automatically if it doesn't exist
+
 ## [v0.4.4] - 2026-06-24
 
 ### Changed
@@ -216,7 +221,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.5...HEAD
+[v0.4.5]: https://github.com/ihyamarsdev/kgen/compare/v0.4.4...v0.4.5
 [v0.4.4]: https://github.com/ihyamarsdev/kgen/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/ihyamarsdev/kgen/compare/v0.4.2...v0.4.3
 [v0.4.2]: https://github.com/ihyamarsdev/kgen/compare/v0.4.1...v0.4.2
