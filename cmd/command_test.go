@@ -303,3 +303,17 @@ func TestDiffMaxTwoArgs(t *testing.T) {
 	// cobra's Args validation requires Execute() not ExecuteC().
 	t.Skip("ExecuteC doesn't trigger Args validation; tested via integration")
 }
+
+func TestDeleteHelpFlag(t *testing.T) {
+	defer resetCmd()
+	output, err := executeCommand("delete", "--help")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(output, "delete") {
+		t.Error("expected help to contain 'delete'")
+	}
+	if !strings.Contains(output, "-y") && !strings.Contains(output, "--yes") {
+		t.Error("expected help to mention -y/--yes flag")
+	}
+}
