@@ -31,6 +31,9 @@ type Config struct {
 	// Secret Backend for ExternalSecret: vault, aws, gcp, azure
 	SecretBackend string
 
+	// Service Type: ClusterIP, NodePort, LoadBalancer, ExternalName
+	ServiceType string
+
 	// Smart Wizard Inputs
 	StorageClass        string
 	StorageSize         string

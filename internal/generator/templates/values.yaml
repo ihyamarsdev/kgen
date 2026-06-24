@@ -48,7 +48,7 @@ securityContext: {}
 {{- end }}
 
 service:
-  type: ClusterIP
+  type: {{ .ServiceType }}
   port: {{ .Port }}
 
 {{- if .GenerateIngress }}

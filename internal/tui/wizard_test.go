@@ -741,3 +741,58 @@ func TestStorageNavigation(t *testing.T) {
 		t.Errorf("expected active storage input 0 after prev (stays due to +3 bug), got %d", mp.ActiveStorageInput)
 	}
 }
+
+func TestWizardModel_ServiceTypeSelection(t *testing.T) {
+	mp := initialModelPtr("dev", "")
+	mp.Step = StepServiceType
+	mp.CurrentStepIndex = 10
+	mp.ActiveSteps = []Step{StepAppInfo, StepMode, StepServiceType, StepConfirm}
+	mp.SelectedServiceType = 0 // ClusterIP
+
+	// Navigate down to NodePort
+	mp.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if mp.SelectedServiceType != 1 {
+		t.Errorf("expected SelectedServiceType 1 (NodePort), got %d", mp.SelectedServiceType)
+	}
+
+	// Navigate down to LoadBalancer
+	mp.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if mp.SelectedServiceType != 2 {
+		t.Errorf("expected SelectedServiceType 2 (LoadBalancer), got %d", mp.SelectedServiceType)
+	}
+
+	// Navigate down to ExternalName
+	mp.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if mp.SelectedServiceType != 3 {
+		t.Errorf("expected SelectedServiceType 3 (ExternalName), got %d", mp.SelectedServiceType)
+	}
+
+	// Wrap around to ClusterIP
+	mp.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if mp.SelectedServiceType != 0 {
+		t.Errorf("expected SelectedServiceType 0 (ClusterIP) after wrap, got %d", mp.SelectedServiceType)
+	}
+}
+
+func TestWizardModel_GetConfig_ServiceType(t *testing.T) {
+	tests := []struct {
+		typeIdx int
+		want    string
+	}{
+		{0, "ClusterIP"},
+		{1, "NodePort"},
+		{2, "LoadBalancer"},
+		{3, "ExternalName"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			mp := initialModelPtr("dev", "")
+			mp.SelectedServiceType = tt.typeIdx
+			cfg, _ := mp.GetConfig()
+			if cfg.ServiceType != tt.want {
+				t.Errorf("expected ServiceType %q, got %q", tt.want, cfg.ServiceType)
+			}
+		})
+	}
+}

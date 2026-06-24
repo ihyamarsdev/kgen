@@ -66,6 +66,7 @@ const (
 	StepIngressTls
 	StepNetworkPolicyPreset
 	StepSecretBackend
+	StepServiceType
 	StepConfirm
 	StepDone
 )
@@ -230,6 +231,9 @@ type WizardModel struct {
 
 	// Step: ExternalSecret backend
 	SelectedBackend Backend
+
+	// Step: Service Type (NodePort, LoadBalancer, ClusterIP, ExternalName)
+	SelectedServiceType int // 0: ClusterIP, 1: NodePort, 2: LoadBalancer, 3: ExternalName
 
 	// Confirmation button focus (0: Generate, 1: Cancel)
 	ConfirmCursor int
@@ -409,6 +413,8 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateNetworkPolicyPreset(msg)
 	case StepSecretBackend:
 		return m.updateSecretBackend(msg)
+	case StepServiceType:
+		return m.updateServiceType(msg)
 	case StepConfirm:
 		return m.updateConfirm(msg)
 	}
@@ -582,6 +588,9 @@ func (m *WizardModel) updateCustomResources(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					if m.SelectedRes["Ingress"] {
 						m.ActiveSteps = append(m.ActiveSteps, StepIngressTls)
+					}
+					if m.SelectedRes["Service"] {
+						m.ActiveSteps = append(m.ActiveSteps, StepServiceType)
 					}
 					if m.SelectedRes["NetworkPolicy"] {
 						m.ActiveSteps = append(m.ActiveSteps, StepNetworkPolicyPreset)
@@ -889,6 +898,32 @@ func (m *WizardModel) updateSecretBackend(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.SelectedBackend++
 			} else {
 				m.SelectedBackend = BackendVault
+			}
+
+		case "enter":
+			m.advanceStep()
+		}
+	}
+	return m, nil
+}
+
+func (m *WizardModel) updateServiceType(msg tea.Msg) (tea.Model, tea.Cmd) {
+	const serviceTypes = 4 // ClusterIP, NodePort, LoadBalancer, ExternalName
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k":
+			if m.SelectedServiceType > 0 {
+				m.SelectedServiceType--
+			} else {
+				m.SelectedServiceType = serviceTypes - 1
+			}
+
+		case "down", "j":
+			if m.SelectedServiceType < serviceTypes-1 {
+				m.SelectedServiceType++
+			} else {
+				m.SelectedServiceType = 0
 			}
 
 		case "enter":
@@ -1260,6 +1295,30 @@ func (m *WizardModel) View() string {
 		}
 		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to select. Esc to go back. (Press '?' for help)"))
 
+	case StepServiceType:
+		sb.WriteString(HeaderStyle.Render("Step 3.8: Choose Service Type"))
+		sb.WriteString("\n")
+		serviceTypes := []struct {
+			name string
+			desc string
+		}{
+			{"ClusterIP", "Default — internal cluster access only"},
+			{"NodePort", "Expose on each node's IP: static port"},
+			{"LoadBalancer", "Provision external load balancer (cloud)"},
+			{"ExternalName", "DNS alias to an external service"},
+		}
+
+		for i, st := range serviceTypes {
+			cursor := "  "
+			stStyle := lipgloss.NewStyle().Foreground(White)
+			if m.SelectedServiceType == i {
+				cursor = ActiveInputStyle.Render("> ")
+				stStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
+			}
+			sb.WriteString(fmt.Sprintf("%s%-20s : %s\n", cursor, stStyle.Render(st.name), GrayStyle.Render(st.desc)))
+		}
+		sb.WriteString(HelpStyle.Render("Use up/down to navigate. Enter to select. Esc to go back. (Press '?' for help)"))
+
 	case StepConfirm:
 		sb.WriteString(HeaderStyle.Render("Step 4: Confirm Generation Settings"))
 		sb.WriteString("\n")
@@ -1361,6 +1420,7 @@ func (m *WizardModel) GetConfig() (generator.Config, string) {
 
 	var qualityNames = []string{"basic", "production", "enterprise"}
 	var backendNames = []string{"vault", "aws", "gcp", "azure"}
+	var serviceTypeNames = []string{"ClusterIP", "NodePort", "LoadBalancer", "ExternalName"}
 	var rbacLevelNames = []string{"readonly", "admin", "custom"}
 	var netpolPresetNames = []string{"defaultdeny", "namespaceonly", "custom"}
 
@@ -1403,6 +1463,7 @@ func (m *WizardModel) GetConfig() (generator.Config, string) {
 
 		TemplateQuality: qualityNames[m.SelectedQuality],
 		SecretBackend:   backendNames[m.SelectedBackend],
+		ServiceType:     serviceTypeNames[m.SelectedServiceType],
 
 		// Storage Config
 		StorageClass:      m.StorageInputs[0].Value(),
