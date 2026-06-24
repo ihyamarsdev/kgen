@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.2] - 2026-06-24
+
+### Added
+- **`kgen delete`**: Remove generated Helm chart files from disk (`~/kgen/`)
+  - `--yes/-y` flag to skip confirmation prompt
+  - Shows file list before deletion
+  - Distinct from `kgen undeploy` (Helm release) and `kgen uninstall` (binary)
+
 ## [v0.4.1] - 2026-06-24
 
 ### Fixed
@@ -186,7 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.2...HEAD
+[v0.4.2]: https://github.com/ihyamarsdev/kgen/compare/v0.4.1...v0.4.2
 [v0.4.1]: https://github.com/ihyamarsdev/kgen/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/ihyamarsdev/kgen/compare/v0.3.1...v0.4.0
 [v0.3.1]: https://github.com/ihyamarsdev/kgen/compare/v0.3.0...v0.3.1
