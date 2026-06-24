@@ -203,3 +203,55 @@ func TestGenerate_MinimalConfig(t *testing.T) {
 		}
 	}
 }
+
+// TestGenerate_ValuesAlwaysContainsAutoscaling verifies that values.yaml
+// always contains the autoscaling block — deployment.yaml references
+// .Values.autoscaling.enabled and nil causes a helm install failure.
+func TestGenerate_ValuesAlwaysContainsAutoscaling(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "kgen-nohpa-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// HPA disabled — the exact scenario that caused the bug.
+	cfg := Config{
+		AppName:            "nohpa",
+		Namespace:          "default",
+		ImageRepository:    "nginx",
+		ImageTag:           "latest",
+		Port:               80,
+		ReplicaCount:       1,
+		HPAEnabled:         false,
+		TemplateQuality:    "basic",
+		GenerateDeployment: true,
+		GenerateService:    true,
+		GenerateHPA:        false,
+	}
+
+	if err := Generate(cfg, tmpDir); err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "values.yaml"))
+	if err != nil {
+		t.Fatalf("failed to read values.yaml: %v", err)
+	}
+
+	content := string(data)
+	if !containsString(content, "autoscaling:") {
+		t.Fatal("values.yaml is missing 'autoscaling:' block — deployment.yaml will fail with nil pointer")
+	}
+	if !containsString(content, "enabled: false") {
+		t.Fatal("values.yaml autoscaling.enabled should be 'false' when HPA is disabled")
+	}
+}
+
+func containsString(s, sub string) bool {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.1] - 2026-06-24
+
+### Fixed
+- **values.yaml**: Always include `autoscaling:` block — deployment.yaml references `.Values.autoscaling.enabled` unconditionally, but the block was only rendered when `GenerateHPA=true`, causing a nil pointer Helm install failure
+- **Regression test**: Added `TestGenerate_ValuesAlwaysContainsAutoscaling` to prevent recurrence
+
 ## [v0.4.0] - 2026-06-23
 
 ### Added
@@ -180,7 +186,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.1...HEAD
+[v0.4.1]: https://github.com/ihyamarsdev/kgen/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/ihyamarsdev/kgen/compare/v0.3.1...v0.4.0
 [v0.3.1]: https://github.com/ihyamarsdev/kgen/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/ihyamarsdev/kgen/compare/v0.2.1...v0.3.0
