@@ -175,7 +175,7 @@ func runDeploy(args []string) {
 }
 
 func buildDeployArgs(release, chartDir, ns string) []string {
-	args := []string{"install", release, chartDir, "--namespace", ns}
+	args := []string{"install", release, chartDir, "--namespace", ns, "--create-namespace"}
 	if deployDryRun {
 		args = append(args, "--dry-run")
 	}
