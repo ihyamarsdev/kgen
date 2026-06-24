@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.4] - 2026-06-24
+
+### Changed
+- **Default chart directory**: Changed from `~/kgen/` to `~/.kgen/` (hidden directory)
+
 ## [v0.4.3] - 2026-06-24
 
 ### Added
@@ -211,7 +216,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.4...HEAD
+[v0.4.4]: https://github.com/ihyamarsdev/kgen/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/ihyamarsdev/kgen/compare/v0.4.2...v0.4.3
 [v0.4.2]: https://github.com/ihyamarsdev/kgen/compare/v0.4.1...v0.4.2
 [v0.4.1]: https://github.com/ihyamarsdev/kgen/compare/v0.4.0...v0.4.1
