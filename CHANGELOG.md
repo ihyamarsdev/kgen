@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.6] - 2026-06-24
+
+### Added
+- **installBinary tests**: Path resolution, symlink handling, directory content preservation verification
+
 ## [v0.4.5] - 2026-06-24
 
 ### Fixed
@@ -221,7 +226,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.6...HEAD
+[v0.4.6]: https://github.com/ihyamarsdev/kgen/compare/v0.4.5...v0.4.6
 [v0.4.5]: https://github.com/ihyamarsdev/kgen/compare/v0.4.4...v0.4.5
 [v0.4.4]: https://github.com/ihyamarsdev/kgen/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/ihyamarsdev/kgen/compare/v0.4.2...v0.4.3
