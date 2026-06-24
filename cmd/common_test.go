@@ -112,3 +112,28 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatalf("failed to write %s: %v", path, err)
 	}
 }
+
+func TestReadChartNamespace(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{"with namespace", "replicaCount: 1\nnamespace: production\n", "production"},
+		{"without namespace", "replicaCount: 1\n", "default"},
+		{"quoted namespace", "namespace: \"staging\"\n", "staging"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, _ := os.MkdirTemp("", "kgen-ns-test-*")
+			defer os.RemoveAll(tmpDir)
+
+			os.WriteFile(filepath.Join(tmpDir, "values.yaml"), []byte(tt.content), 0644)
+			got := readChartNamespace(tmpDir)
+			if got != tt.want {
+				t.Errorf("readChartNamespace() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

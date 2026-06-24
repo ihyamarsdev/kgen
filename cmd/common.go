@@ -134,3 +134,24 @@ func helmReleaseExists(release, namespace string) bool {
 	}
 	return false
 }
+
+// readChartNamespace reads the namespace from a chart's values.yaml.
+// It looks for a top-level "namespace:" key. Returns "default" if not found.
+func readChartNamespace(chartDir string) string {
+	valuesPath := filepath.Join(chartDir, "values.yaml")
+	data, err := os.ReadFile(valuesPath)
+	if err != nil {
+		return "default"
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "namespace:") {
+			val := strings.TrimSpace(strings.TrimPrefix(trimmed, "namespace:"))
+			val = strings.Trim(val, "\"'")
+			if val != "" {
+				return val
+			}
+		}
+	}
+	return "default"
+}

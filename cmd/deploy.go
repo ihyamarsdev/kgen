@@ -134,10 +134,17 @@ func runDeploy(args []string) {
 		release = releaseNameFromChart(chartDir)
 	}
 
+	// Read namespace from chart values if user didn't specify -n
+	chartNS := readChartNamespace(chartDir)
+	ns := deployNamespace
+	if ns == "default" && chartNS != "default" {
+		ns = chartNS
+	}
+
 	fmt.Println(tui.HeaderStyle.Render("Deploying Helm Chart"))
 	fmt.Printf("  Chart:     %s\n", chartDir)
 	fmt.Printf("  Release:   %s\n", release)
-	fmt.Printf("  Namespace: %s\n", deployNamespace)
+	fmt.Printf("  Namespace: %s\n", ns)
 
 	if deployDryRun {
 		fmt.Println(tui.GrayStyle.Render("  Mode:      dry-run"))
@@ -145,14 +152,14 @@ func runDeploy(args []string) {
 	fmt.Println()
 
 	// Build helm command arguments.
-	helmArgs := buildDeployArgs(release, chartDir)
+	helmArgs := buildDeployArgs(release, chartDir, ns)
 
 	// Check if release exists to decide between install and upgrade.
 	action := "install"
-	if !deployDryRun && helmReleaseExists(release, deployNamespace) {
+	if !deployDryRun && helmReleaseExists(release, ns) {
 		action = "upgrade"
-		helmArgs = buildUpgradeArgs(release, chartDir)
-		fmt.Printf("Release '%s' already exists in namespace '%s' — performing %s.\n", release, deployNamespace, action)
+		helmArgs = buildUpgradeArgs(release, chartDir, ns)
+		fmt.Printf("Release '%s' already exists in namespace '%s' — performing %s.\n", release, ns, action)
 		fmt.Println()
 	}
 
@@ -164,11 +171,11 @@ func runDeploy(args []string) {
 	}
 
 	fmt.Println()
-	fmt.Println(tui.SuccessStyle.Render(fmt.Sprintf("Chart %s successfully as release '%s' in namespace '%s'.", action, release, deployNamespace)))
+	fmt.Println(tui.SuccessStyle.Render(fmt.Sprintf("Chart %s successfully as release '%s' in namespace '%s'.", action, release, ns)))
 }
 
-func buildDeployArgs(release, chartDir string) []string {
-	args := []string{"install", release, chartDir, "--namespace", deployNamespace}
+func buildDeployArgs(release, chartDir, ns string) []string {
+	args := []string{"install", release, chartDir, "--namespace", ns}
 	if deployDryRun {
 		args = append(args, "--dry-run")
 	}
@@ -185,8 +192,8 @@ func buildDeployArgs(release, chartDir string) []string {
 	return args
 }
 
-func buildUpgradeArgs(release, chartDir string) []string {
-	args := []string{"upgrade", release, chartDir, "--namespace", deployNamespace}
+func buildUpgradeArgs(release, chartDir, ns string) []string {
+	args := []string{"upgrade", release, chartDir, "--namespace", ns}
 	if deployDryRun {
 		args = append(args, "--dry-run")
 	}
@@ -212,25 +219,32 @@ func runUndeploy(args []string) {
 		release = releaseNameFromChart(chartDir)
 	}
 
+	// Read namespace from chart values if user didn't specify -n
+	chartNS := readChartNamespace(chartDir)
+	ns := deployNamespace
+	if ns == "default" && chartNS != "default" {
+		ns = chartNS
+	}
+
 	fmt.Println(tui.HeaderStyle.Render("Uninstalling Helm Release"))
 	fmt.Printf("  Release:   %s\n", release)
-	fmt.Printf("  Namespace: %s\n", deployNamespace)
+	fmt.Printf("  Namespace: %s\n", ns)
 	fmt.Println()
 
 	// Check if the release actually exists.
-	if !helmReleaseExists(release, deployNamespace) {
-		printErr("Error: Release '%s' not found in namespace '%s'.", release, deployNamespace)
+	if !helmReleaseExists(release, ns) {
+		printErr("Error: Release '%s' not found in namespace '%s'.", release, ns)
 		os.Exit(1)
 	}
 
 	if !deployYes {
-		if !confirm(fmt.Sprintf("Uninstall release '%s' from namespace '%s'?", release, deployNamespace)) {
+		if !confirm(fmt.Sprintf("Uninstall release '%s' from namespace '%s'?", release, ns)) {
 			fmt.Println("Uninstall cancelled.")
 			return
 		}
 	}
 
-	helmArgs := []string{"uninstall", release, "--namespace", deployNamespace}
+	helmArgs := []string{"uninstall", release, "--namespace", ns}
 	if deployDryRun {
 		helmArgs = append(helmArgs, "--dry-run")
 	}
@@ -243,7 +257,7 @@ func runUndeploy(args []string) {
 	}
 
 	fmt.Println()
-	fmt.Println(tui.SuccessStyle.Render(fmt.Sprintf("Release '%s' uninstalled successfully from namespace '%s'.", release, deployNamespace)))
+	fmt.Println(tui.SuccessStyle.Render(fmt.Sprintf("Release '%s' uninstalled successfully from namespace '%s'.", release, ns)))
 }
 
 func runStatus(args []string) {
@@ -255,18 +269,25 @@ func runStatus(args []string) {
 		release = releaseNameFromChart(chartDir)
 	}
 
+	// Read namespace from chart values if user didn't specify -n
+	chartNS := readChartNamespace(chartDir)
+	ns := deployNamespace
+	if ns == "default" && chartNS != "default" {
+		ns = chartNS
+	}
+
 	fmt.Println(tui.HeaderStyle.Render("Helm Release Status"))
 	fmt.Printf("  Release:   %s\n", release)
-	fmt.Printf("  Namespace: %s\n", deployNamespace)
+	fmt.Printf("  Namespace: %s\n", ns)
 	fmt.Println()
 
-	if !helmReleaseExists(release, deployNamespace) {
-		printErr("Error: Release '%s' not found in namespace '%s'.", release, deployNamespace)
+	if !helmReleaseExists(release, ns) {
+		printErr("Error: Release '%s' not found in namespace '%s'.", release, ns)
 		fmt.Printf("Deploy it first with: kgen deploy %s\n", chartDir)
 		os.Exit(1)
 	}
 
-	helmArgs := []string{"status", release, "--namespace", deployNamespace}
+	helmArgs := []string{"status", release, "--namespace", ns}
 	fmt.Printf("Running: helm %s\n\n", strings.Join(helmArgs, " "))
 
 	if err := helmRun(helmArgs...); err != nil {

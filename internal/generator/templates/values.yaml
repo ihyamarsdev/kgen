@@ -1,6 +1,8 @@
 # Default values for {{ .AppName }}.
 # This is a YAML-formatted file.
 
+namespace: {{ .Namespace }}
+
 replicaCount: {{ .ReplicaCount }}
 
 image:
