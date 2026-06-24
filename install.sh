@@ -4,7 +4,7 @@ set -euo pipefail
 
 OWNER="ihyamarsdev"
 REPO="kgen"
-DEFAULT_VERSION="v0.4.2"
+DEFAULT_VERSION="v0.4.3"
 
 # Fetch latest version tag from GitHub API
 VERSION=$(curl -sf "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | grep -Po '"tag_name": "\K[^"]*' || true)

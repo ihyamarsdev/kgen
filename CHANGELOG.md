@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.3] - 2026-06-24
+
+### Added
+- **Service type selection** in Custom wizard: ClusterIP, NodePort, LoadBalancer, ExternalName
+- **Namespace from values.yaml**: deploy/undeploy/status commands now read namespace from chart values.yaml instead of defaulting to 'default'
+
+### Changed
+- **Wizard completeness**: Simple and Advanced modes now show intermediate config steps (ServiceType, IngressTls, NetworkPolicy preset, etc.) based on selected resources — not just Custom mode
+- **Istio VirtualService**: Added to Networking category (was missing, `GenerateIstio` was always false)
+- Extracted `buildActiveSteps()` reusable function from Custom mode
+
+### Fixed
+- **values.yaml autoscaling**: Always include `autoscaling:` block (was nil pointer on `helm install` when HPA disabled)
+
+### Removed
+- Dead `StepDone` constant
+
 ## [v0.4.2] - 2026-06-24
 
 ### Added
@@ -194,7 +211,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.3...HEAD
+[v0.4.3]: https://github.com/ihyamarsdev/kgen/compare/v0.4.2...v0.4.3
 [v0.4.2]: https://github.com/ihyamarsdev/kgen/compare/v0.4.1...v0.4.2
 [v0.4.1]: https://github.com/ihyamarsdev/kgen/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/ihyamarsdev/kgen/compare/v0.3.1...v0.4.0
