@@ -26,7 +26,7 @@ var editCmd = &cobra.Command{
 			if isHelmChart(".") {
 				targetDir = "."
 			} else {
-				// Scan ~/kgen/ for chart directories
+				// Scan ~/.kgen/ for chart directories
 				charts := listAvailableCharts()
 				switch len(charts) {
 				case 0:
@@ -37,7 +37,7 @@ var editCmd = &cobra.Command{
 
 				case 1:
 					// Only one chart — auto-select it
-					targetDir = filepath.Join(homeDir(), "kgen", charts[0])
+					targetDir = filepath.Join(chartsDir(), charts[0])
 
 				default:
 					// Multiple charts — let user pick via interactive TUI
@@ -54,7 +54,7 @@ var editCmd = &cobra.Command{
 						fmt.Println("Edit cancelled.")
 						return
 					}
-					targetDir = filepath.Join(homeDir(), "kgen", resModel.SelectedChart)
+					targetDir = filepath.Join(chartsDir(), resModel.SelectedChart)
 				}
 			}
 		}

@@ -228,9 +228,9 @@ func TestE2E_ResolveChartPath(t *testing.T) {
 		t.Skip("Cannot determine home directory")
 	}
 
-	// Create a chart in ~/kgen/e2e-test/.
-	chartDir := filepath.Join(home, "kgen", "e2e-test-resolve")
-	defer os.RemoveAll(filepath.Join(home, "kgen"))
+	// Create a chart in ~/.kgen/e2e-test/.
+	chartDir := filepath.Join(home, ".kgen", "e2e-test-resolve")
+	defer os.RemoveAll(filepath.Join(home, ".kgen"))
 	os.MkdirAll(chartDir, 0755)
 
 	cfg := generator.Config{

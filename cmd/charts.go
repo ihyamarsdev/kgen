@@ -7,13 +7,9 @@ import (
 	"strings"
 )
 
-// listAvailableCharts returns chart directory names found in ~/kgen/.
+// listAvailableCharts returns chart directory names found in ~/.kgen/.
 func listAvailableCharts() []string {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil
-	}
-	kgenDir := filepath.Join(homeDir, "kgen")
+	kgenDir := chartsDir()
 	entries, err := os.ReadDir(kgenDir)
 	if err != nil {
 		return nil
@@ -37,18 +33,13 @@ func promptChartChoice(charts []string) string {
 		printErr("Invalid selection. Please enter a number between 1 and %d.", len(charts))
 		os.Exit(1)
 	}
-	hd, err := os.UserHomeDir()
-	if err != nil {
-		printErr("Error: could not determine home directory: %v", err)
-		os.Exit(1)
-	}
-	return filepath.Join(hd, "kgen", charts[choice-1])
+	return filepath.Join(chartsDir(), charts[choice-1])
 }
 
 // resolveChartPath resolves a chart path:
 //   - If it's an absolute path, return as-is.
 //   - If it's relative but exists, resolve to absolute.
-//   - If it matches a chart name in ~/kgen/, resolve to ~/kgen/<name>.
+//   - If it matches a chart name in ~/.kgen/, resolve to ~/.kgen/<name>.
 func resolveChartPath(path string) string {
 	if filepath.IsAbs(path) {
 		if isHelmChart(path) {
@@ -63,13 +54,10 @@ func resolveChartPath(path string) string {
 		return abs
 	}
 
-	// Try as a chart name in ~/kgen/.
-	homeDir, err := os.UserHomeDir()
-	if err == nil {
-		candidate := filepath.Join(homeDir, "kgen", path)
-		if isHelmChart(candidate) {
-			return candidate
-		}
+	// Try as a chart name in ~/.kgen/.
+	candidate := filepath.Join(chartsDir(), path)
+	if isHelmChart(candidate) {
+		return candidate
 	}
 
 	printErr("Error: '%s' is not a valid Helm chart directory.", path)

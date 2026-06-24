@@ -32,7 +32,7 @@ var deployCmd = &cobra.Command{
 If the release already exists in the target namespace, it will be upgraded.
 Otherwise, a fresh install is performed.
 
-If no chart directory is provided, kgen will auto-select from ~/kgen/.`,
+If no chart directory is provided, kgen will auto-select from ~/.kgen/.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		runDeploy(args)
@@ -46,7 +46,7 @@ var undeployCmd = &cobra.Command{
 
 The release name is derived from the chart directory name. Override with --release.
 
-If no chart directory is provided, kgen will auto-select from ~/kgen/.`,
+If no chart directory is provided, kgen will auto-select from ~/.kgen/.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		runUndeploy(args)
@@ -60,7 +60,7 @@ var statusCmd = &cobra.Command{
 
 The release name is derived from the chart directory name. Override with --release.
 
-If no chart directory is provided, kgen will auto-select from ~/kgen/.`,
+If no chart directory is provided, kgen will auto-select from ~/.kgen/.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		runStatus(args)
@@ -100,13 +100,13 @@ func resolveDeployChart(args []string) string {
 
 	charts := listAvailableCharts()
 	if len(charts) == 0 {
-		printErr("Error: No generated Helm charts found in ~/kgen/.")
+		printErr("Error: No generated Helm charts found in ~/.kgen/.")
 		fmt.Println("Run 'kgen create' first to generate a chart.")
 		os.Exit(1)
 	}
 
 	if len(charts) == 1 {
-		return filepath.Join(homeDir(), "kgen", charts[0])
+		return filepath.Join(chartsDir(), charts[0])
 	}
 
 	fmt.Println(tui.HeaderStyle.Render("Select a chart to deploy:"))

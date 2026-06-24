@@ -22,7 +22,7 @@ directory and display the result in the terminal — similar to 'helm template'.
 Static template files (templates/*.yaml) are printed as-is since they contain
 Helm template syntax to be rendered at install time.
 
-If no directory is specified, kgen will attempt to auto-select from ~/kgen/.`,
+If no directory is specified, kgen will attempt to auto-select from ~/.kgen/.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		runPreview(args)
@@ -41,12 +41,12 @@ func runPreview(args []string) {
 	} else {
 		charts := listAvailableCharts()
 		if len(charts) == 0 {
-			printErr("Error: No generated Helm charts found in ~/kgen/.")
+			printErr("Error: No generated Helm charts found in ~/.kgen/.")
 			fmt.Println("Run 'kgen create' first to generate a chart.")
 			os.Exit(1)
 		}
 		if len(charts) == 1 {
-			chartDir = filepath.Join(homeDir(), "kgen", charts[0])
+			chartDir = filepath.Join(chartsDir(), charts[0])
 		} else {
 			fmt.Println(tui.HeaderStyle.Render("Select a chart to preview:"))
 			for i, c := range charts {

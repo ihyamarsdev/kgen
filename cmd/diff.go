@@ -21,7 +21,7 @@ var diffCmd = &cobra.Command{
 of their file contents. Hidden files (dotfiles) and empty directories
 are skipped.
 
-If either path is omitted, kgen will attempt to auto-select from ~/kgen/.`,
+If either path is omitted, kgen will attempt to auto-select from ~/.kgen/.`,
 	Args: cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		runDiff(args)
@@ -114,7 +114,7 @@ func runDiff(args []string) {
 	}
 }
 
-// resolveDiffPaths resolves dirA and dirB. If omitted, it auto-selects from ~/kgen/.
+// resolveDiffPaths resolves dirA and dirB. If omitted, it auto-selects from ~/.kgen/.
 func resolveDiffPaths(args []string) (string, string) {
 	var dirA, dirB string
 
@@ -125,11 +125,11 @@ func resolveDiffPaths(args []string) (string, string) {
 		dirB = args[1]
 	}
 
-	// Resolve missing paths from ~/kgen/.
+	// Resolve missing paths from ~/.kgen/.
 	if dirA == "" || dirB == "" {
 		charts := listAvailableCharts()
 		if len(charts) < 2 {
-			printErr("Error: Not enough charts in ~/kgen/ to diff (found %d, need 2).", len(charts))
+			printErr("Error: Not enough charts in ~/.kgen/ to diff (found %d, need 2).", len(charts))
 			fmt.Println("Usage: kgen diff [chart-a] [chart-b]")
 			os.Exit(1)
 		}

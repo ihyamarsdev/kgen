@@ -18,7 +18,7 @@ var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Uninstall kgen and remove generated data",
 	Long: `Remove the kgen binary from your PATH and optionally delete any
-generated charts (~/kgen/) and configuration files (~/.config/kgen/).
+generated charts (~/.kgen/) and configuration files (~/.config/kgen/).
 A confirmation prompt is shown before any deletions; use the --yes flag
 to skip it (useful for automation and scripts).`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -45,9 +45,9 @@ func runUninstall() {
 
 	home := homeDir()
 
-	// 2. Generated charts directory (~/kgen).
+	// 2. Generated charts directory (~/.kgen).
 	if home != "" {
-		kgenDir := filepath.Join(home, "kgen")
+		kgenDir := chartsDir()
 		if info, err := os.Stat(kgenDir); err == nil && info.IsDir() {
 			items = append(items, uninstallItem{
 				label: "Generated charts directory",

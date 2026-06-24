@@ -11,6 +11,13 @@ import (
 	"strings"
 )
 
+const kgenDirName = ".kgen"
+
+// chartsDir returns the path to the charts directory (~/.kgen).
+func chartsDir() string {
+	return filepath.Join(homeDir(), kgenDirName)
+}
+
 // confirm prompts the user with a yes/no question on stdin.
 //
 // It returns true when the user answers "y" or "yes" (case-insensitive) and

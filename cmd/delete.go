@@ -14,12 +14,12 @@ var deleteYes bool
 var deleteCmd = &cobra.Command{
 	Use:   "delete [chart-directory]",
 	Short: "Delete a generated Helm chart from disk",
-	Long: `Delete a generated Helm chart directory and all its files from ~/kgen/.
+	Long: `Delete a generated Helm chart directory and all its files from ~/.kgen/.
 
 This removes the local chart files only — it does NOT uninstall
 the Helm release from a Kubernetes cluster (use 'kgen undeploy' for that).
 
-If no chart directory is provided, kgen will auto-select from ~/kgen/.`,
+If no chart directory is provided, kgen will auto-select from ~/.kgen/.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		runDelete(args)
@@ -87,13 +87,13 @@ func resolveDeleteChart(args []string) string {
 
 	charts := listAvailableCharts()
 	if len(charts) == 0 {
-		printErr("Error: No generated Helm charts found in ~/kgen/.")
+		printErr("Error: No generated Helm charts found in %s/.", kgenDirName)
 		fmt.Println("Nothing to delete.")
 		os.Exit(1)
 	}
 
 	if len(charts) == 1 {
-		return filepath.Join(homeDir(), "kgen", charts[0])
+		return filepath.Join(chartsDir(), charts[0])
 	}
 
 	fmt.Println(tui.HeaderStyle.Render("Select a chart to delete:"))

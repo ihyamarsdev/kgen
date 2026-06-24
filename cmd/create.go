@@ -141,14 +141,14 @@ var createCmd = &cobra.Command{
 
 		cfg, appName := wizardModel.GetConfig()
 
-		targetDir := outputFlag
-		if targetDir == "" {
-			if hd := homeDir(); hd != "" {
-				targetDir = filepath.Join(hd, "kgen", appName)
-			} else {
-				targetDir = filepath.Join(".", appName)
+			targetDir := outputFlag
+			if targetDir == "" {
+				if cd := chartsDir(); cd != "" {
+					targetDir = filepath.Join(cd, appName)
+				} else {
+					targetDir = filepath.Join(".", appName)
+				}
 			}
-		}
 
 		// Check if target directory already exists
 		if _, err := os.Stat(targetDir); err == nil {
