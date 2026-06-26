@@ -17,16 +17,16 @@ type ValidationResult struct {
 }
 
 type Checks struct {
-	HasLivenessProbe            bool
-	HasReadinessProbe           bool
-	HasLimits                   bool
-	HasRequests                 bool
-	HasSecurityCtx              bool
-	HasHPA                      bool
-	HasPDB                      bool
-	HasNetworkPolicy            bool
+	HasLivenessProbe             bool
+	HasReadinessProbe            bool
+	HasLimits                    bool
+	HasRequests                  bool
+	HasSecurityCtx               bool
+	HasHPA                       bool
+	HasPDB                       bool
+	HasNetworkPolicy             bool
 	HasTopologySpreadConstraints bool
-	HasPodAntiAffinity          bool
+	HasPodAntiAffinity           bool
 }
 
 func ValidateDir(dirPath string) ([]ValidationResult, error) {
@@ -43,7 +43,7 @@ func ValidateDir(dirPath string) ([]ValidationResult, error) {
 	// Scan templates directory for YAML files indicating resource presence
 	templatesDir := filepath.Join(dirPath, "templates")
 	if _, err := os.Stat(templatesDir); err == nil {
-		filepath.WalkDir(templatesDir, func(path string, d fs.DirEntry, err error) error {
+		_ = filepath.WalkDir(templatesDir, func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return nil
 			}
@@ -91,23 +91,29 @@ func ValidateDir(dirPath string) ([]ValidationResult, error) {
 				checks.HasRequests = true
 			}
 			if hasKeyPath(valMap, "autoscaling", "enabled") {
-				if enabled, ok := valMap["autoscaling"].(map[string]any)["enabled"]; ok {
-					if boolVal, ok := enabled.(bool); ok && boolVal {
-						checks.HasHPA = true
+				if autoMap, ok := valMap["autoscaling"].(map[string]any); ok {
+					if enabled, ok := autoMap["enabled"]; ok {
+						if boolVal, ok := enabled.(bool); ok && boolVal {
+							checks.HasHPA = true
+						}
 					}
 				}
 			}
 			if hasKeyPath(valMap, "pdb", "enabled") {
-				if enabled, ok := valMap["pdb"].(map[string]any)["enabled"]; ok {
-					if boolVal, ok := enabled.(bool); ok && boolVal {
-						checks.HasPDB = true
+				if pdbMap, ok := valMap["pdb"].(map[string]any); ok {
+					if enabled, ok := pdbMap["enabled"]; ok {
+						if boolVal, ok := enabled.(bool); ok && boolVal {
+							checks.HasPDB = true
+						}
 					}
 				}
 			}
 			if hasKeyPath(valMap, "networkPolicy", "enabled") {
-				if enabled, ok := valMap["networkPolicy"].(map[string]any)["enabled"]; ok {
-					if boolVal, ok := enabled.(bool); ok && boolVal {
-						checks.HasNetworkPolicy = true
+				if npMap, ok := valMap["networkPolicy"].(map[string]any); ok {
+					if enabled, ok := npMap["enabled"]; ok {
+						if boolVal, ok := enabled.(bool); ok && boolVal {
+							checks.HasNetworkPolicy = true
+						}
 					}
 				}
 			}

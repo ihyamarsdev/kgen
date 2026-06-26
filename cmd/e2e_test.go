@@ -66,22 +66,22 @@ func TestE2E_FullFlow(t *testing.T) {
 
 	// Step 3: Generate a production-like chart.
 	cfgProd := generator.Config{
-		AppName:                      "prod-app",
-		Namespace:                    "production",
-		ImageRepository:              "myapp",
-		ImageTag:                     "v1.0.0",
-		Port:                         8080,
-		ReplicaCount:                 3,
-		TemplateQuality:              "production",
-		GenerateDeployment:           true,
-		GenerateService:              true,
-		GenerateIngress:              true,
-		GenerateHPA:                  true,
-		GeneratePDB:                  true,
-		GenerateServiceMonitor:       true,
-		GenerateNetworkPolicy:        true,
+		AppName:                           "prod-app",
+		Namespace:                         "production",
+		ImageRepository:                   "myapp",
+		ImageTag:                          "v1.0.0",
+		Port:                              8080,
+		ReplicaCount:                      3,
+		TemplateQuality:                   "production",
+		GenerateDeployment:                true,
+		GenerateService:                   true,
+		GenerateIngress:                   true,
+		GenerateHPA:                       true,
+		GeneratePDB:                       true,
+		GenerateServiceMonitor:            true,
+		GenerateNetworkPolicy:             true,
 		GenerateTopologySpreadConstraints: true,
-		GeneratePodAntiAffinity:      true,
+		GeneratePodAntiAffinity:           true,
 	}
 	if err := generator.Generate(cfgProd, tmpDirB); err != nil {
 		t.Fatalf("Generate prod chart failed: %v", err)

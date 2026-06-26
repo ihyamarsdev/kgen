@@ -352,18 +352,18 @@ func (m *WizardModel) regressStep() {
 
 // dependencyHints returns a map of resource -> dependency hint message.
 var dependencyHints = map[string]string{
-	"Deployment":       "↳ Service will be auto-enabled (required for networking)",
-	"Service":          "↳ Required by Ingress, Gateway API, and ServiceMonitor",
-	"StatefulSet":      "↳ PersistentVolumeClaim will be auto-enabled (requires storage)",
-	"Ingress":          "↳ Service will be auto-enabled (Ingress routes to a Service)",
-	"Gateway API":      "↳ Service will be auto-enabled (Gateway routes to a Service)",
-	"ServiceMonitor":   "↳ Service will be auto-enabled (targets Service endpoints)",
-	"RoleBinding":      "↳ Role + ServiceAccount will be auto-enabled",
+	"Deployment":         "↳ Service will be auto-enabled (required for networking)",
+	"Service":            "↳ Required by Ingress, Gateway API, and ServiceMonitor",
+	"StatefulSet":        "↳ PersistentVolumeClaim will be auto-enabled (requires storage)",
+	"Ingress":            "↳ Service will be auto-enabled (Ingress routes to a Service)",
+	"Gateway API":        "↳ Service will be auto-enabled (Gateway routes to a Service)",
+	"ServiceMonitor":     "↳ Service will be auto-enabled (targets Service endpoints)",
+	"RoleBinding":        "↳ Role + ServiceAccount will be auto-enabled",
 	"ClusterRoleBinding": "↳ ClusterRole + ServiceAccount will be auto-enabled",
-	"CronJob":          "↳ ConfigMap will be auto-enabled (recommended for scripts)",
-	"Job":              "↳ ConfigMap will be auto-enabled (recommended for scripts)",
-	"HPA":              "↳ Requires resource requests/limits (consider Production quality)",
-	"VPA":              "⚠ Conflicts with HPA — don't use VPA and HPA together",
+	"CronJob":            "↳ ConfigMap will be auto-enabled (recommended for scripts)",
+	"Job":                "↳ ConfigMap will be auto-enabled (recommended for scripts)",
+	"HPA":                "↳ Requires resource requests/limits (consider Production quality)",
+	"VPA":                "⚠ Conflicts with HPA — don't use VPA and HPA together",
 }
 
 // applyDependencyRules enforces resource dependency rules when a user toggles a resource.
@@ -1186,11 +1186,12 @@ func (m *WizardModel) View() string {
 					itStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
 				}
 
-				checked := " "
+				var checked string
 				if m.SelectedRes[it] {
 					checked = CheckboxChecked.Render("✓")
 				} else {
-					checked = CheckboxUnchecked.Render(" ")				}
+					checked = CheckboxUnchecked.Render(" ")
+				}
 				sb.WriteString(fmt.Sprintf("%s[%s] %s\n", cursor, checked, itStyle.Render(it)))
 			}
 
@@ -1302,7 +1303,7 @@ func (m *WizardModel) View() string {
 					rStyle = lipgloss.NewStyle().Foreground(Cyan).Bold(true)
 				}
 
-				checked := " "
+				var checked string
 				if m.SelectedRbacRes[r] {
 					checked = CheckboxChecked.Render("✓")
 				} else {

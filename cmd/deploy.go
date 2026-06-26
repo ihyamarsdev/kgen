@@ -14,14 +14,14 @@ import (
 
 // Deploy flags
 var (
-	deployRelease     string
-	deployNamespace   string
-	deployValues      []string
-	deploySet         []string
-	deployDryRun      bool
-	deployTimeout     string
-	deployWait        bool
-	deployYes         bool
+	deployRelease   string
+	deployNamespace string
+	deployValues    []string
+	deploySet       []string
+	deployDryRun    bool
+	deployTimeout   string
+	deployWait      bool
+	deployYes       bool
 )
 
 var deployCmd = &cobra.Command{

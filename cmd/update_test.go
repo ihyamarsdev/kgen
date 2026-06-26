@@ -123,9 +123,9 @@ func TestInstallBinary_PreservesDirContents(t *testing.T) {
 
 	// Create multiple files in the directory
 	files := map[string]string{
-		"kgen":           "old",
+		"kgen":            "old",
 		"some-config.txt": "config-data",
-		"readme.md":      "docs",
+		"readme.md":       "docs",
 	}
 	for name, content := range files {
 		os.WriteFile(filepath.Join(tmpDir, name), []byte(content), 0o644)

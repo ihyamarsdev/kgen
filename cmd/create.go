@@ -142,14 +142,14 @@ var createCmd = &cobra.Command{
 
 		cfg, appName := wizardModel.GetConfig()
 
-			targetDir := outputFlag
-			if targetDir == "" {
-				if cd := chartsDir(); cd != "" {
-					targetDir = filepath.Join(cd, appName)
-				} else {
-					targetDir = filepath.Join(".", appName)
-				}
+		targetDir := outputFlag
+		if targetDir == "" {
+			if cd := chartsDir(); cd != "" {
+				targetDir = filepath.Join(cd, appName)
+			} else {
+				targetDir = filepath.Join(".", appName)
 			}
+		}
 
 		// Check if target directory already exists
 		if _, err := os.Stat(targetDir); err == nil {
@@ -266,8 +266,8 @@ var createCmd = &cobra.Command{
 				cmdEdit.Stdout = os.Stdout
 				cmdEdit.Stderr = os.Stderr
 				if err := cmdEdit.Run(); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: editor exited with error: %v\n", err)
-			}
+					fmt.Fprintf(os.Stderr, "Warning: editor exited with error: %v\n", err)
+				}
 			}
 		} else {
 			fmt.Println("No terminal editor ($EDITOR, nano, vim, vi) found in path. Skipping file edit option.")
