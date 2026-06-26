@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.7.0] - 2026-06-27
+
+### Added
+- **Automated release workflow**: GitHub Actions now automatically builds and uploads binaries (linux/amd64, darwin/amd64, darwin/arm64) + SHA256 checksums when a release is published.
+- **golangci-lint v2 migration**: Config updated to version 2 format, QF1012 disabled, errcheck exclusions for test files.
+
+### Changed
+- **Merged Mode & Quality into single step**: Simple mode → Basic quality (inline), Advanced → Production (inline), Custom → select resources then quality. Removed standalone quality selection step for Simple/Advanced.
+- **Moved PodAntiAffinity & TopologySpreadConstraints from Quality Enterprise to resource selection**: These are now regular resources selected in Advanced mode preset or Custom mode, not auto-enabled by quality level.
+
+### Fixed
+- **golangci-lint v2 issues**: Fixed all pre-existing lint errors caught by v2 (gofmt, ineffassign, errcheck, staticcheck).
+- **CI Node 20 deprecation**: Bumped golangci-lint-action from v8 to v9 (Node 24).
+
 ## [v0.6.0] - 2026-06-27
 
 ### Changed
@@ -244,7 +258,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.7.0...HEAD
+[v0.7.0]: https://github.com/ihyamarsdev/kgen/compare/v0.6.0...v0.7.0
 [v0.6.0]: https://github.com/ihyamarsdev/kgen/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/ihyamarsdev/kgen/compare/v0.4.6...v0.5.0
 [v0.4.6]: https://github.com/ihyamarsdev/kgen/compare/v0.4.5...v0.4.6

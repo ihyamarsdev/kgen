@@ -15,7 +15,7 @@ const (
 // it at build time via -ldflags:
 //
 //	go build -ldflags "-X github.com/ihyamarsdev/kgen/internal/version.Version=v0.4.6" -o kgen main.go
-var Version = "v0.6.0"
+var Version = "v0.7.0"
 
 // RepoURL returns the canonical GitHub URL for the project.
 func RepoURL() string {
