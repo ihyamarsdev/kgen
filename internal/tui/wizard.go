@@ -623,9 +623,31 @@ func (m *WizardModel) updateMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.CurrentStepIndex = 2
 				m.Step = StepCustomResources
 			} else {
-				m.ActiveSteps = []Step{StepAppInfo, StepMode, StepQuality, StepConfirm}
-				m.CurrentStepIndex = 2
-				m.Step = StepQuality
+				// Simple/Advanced: set quality preset and resources inline
+				if m.SelectedMode == ModeSimple {
+					m.SelectedQuality = QualityBasic
+					m.SelectedRes = map[string]bool{
+						"Deployment": true,
+						"Service":    true,
+					}
+				} else { // ModeAdvanced
+					m.SelectedQuality = QualityProduction
+					m.SelectedRes = map[string]bool{
+						"Deployment":                  true,
+						"Service":                     true,
+						"Ingress":                     true,
+						"HPA":                         true,
+						"PDB":                         true,
+						"ServiceMonitor":              true,
+						"NetworkPolicy":               true,
+						"Pod Anti Affinity":           true,
+						"Topology Spread Constraints": true,
+					}
+				}
+				// Build config steps including conditional ones (ServiceType, IngressTls, etc.)
+				m.buildActiveSteps(StepAppInfo, StepMode)
+				m.CurrentStepIndex = 1
+				m.advanceStep()
 			}
 		}
 	}
@@ -651,33 +673,9 @@ func (m *WizardModel) updateQuality(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			// Set defaults based on simple/advanced mode
-			if m.SelectedMode == ModeSimple {
-				m.SelectedRes = map[string]bool{
-					"Deployment": true,
-					"Service":    true,
-				}
-			} else if m.SelectedMode == ModeAdvanced {
-				m.SelectedRes = map[string]bool{
-					"Deployment":     true,
-					"Service":        true,
-					"Ingress":        true,
-					"HPA":            true,
-					"PDB":            true,
-					"ServiceMonitor": true,
-					"NetworkPolicy":  true,
-				}
-			}
-			// Rebuild steps with conditional config steps based on selected resources.
-			// This ensures Simple/Advanced modes also show ServiceType, IngressTls, etc.
-			m.buildActiveSteps(StepAppInfo, StepMode, StepQuality)
-			// Ensure Service is enabled for Advanced mode deployment
-			if !m.SelectedRes["Service"] {
-				m.SelectedRes["Service"] = true
-			}
-			if !m.SelectedRes["Deployment"] {
-				m.SelectedRes["Deployment"] = true
-			}
+			// Build conditional steps based on selected resources + quality.
+			// (Quality selection is now only shown for Custom mode.)
+			m.buildActiveSteps(StepAppInfo, StepMode, StepCustomResources, StepQuality)
 			m.advanceStep()
 		}
 	}
@@ -706,8 +704,8 @@ func (m *WizardModel) updateCustomResources(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				if m.SelectedCategory == len(Categories) {
 					// User clicked [ Continue to Confirm ].
-					// Build the dynamic steps based on what was selected!
-					m.buildActiveSteps(StepAppInfo, StepMode, StepCustomResources)
+					// Go to quality selection first (Custom mode only).
+					m.ActiveSteps = []Step{StepAppInfo, StepMode, StepCustomResources, StepQuality}
 					// Ensure Service is enabled if Ingress or Gateway is selected
 					if m.SelectedRes["Ingress"] || m.SelectedRes["Gateway API"] {
 						m.SelectedRes["Service"] = true
@@ -1616,8 +1614,8 @@ func (m *WizardModel) GetConfig() (generator.Config, string) {
 		GenerateGrafanaDashboard:          m.SelectedRes["GrafanaDashboard"],
 		GenerateArgoCDSet:                 m.SelectedRes["ArgoCD ApplicationSet"],
 		GenerateFlux:                      m.SelectedRes["Flux HelmRelease"] || m.SelectedRes["Flux Kustomization"],
-		GeneratePodAntiAffinity:           m.SelectedRes["Pod Anti Affinity"] || qualityNames[m.SelectedQuality] == "enterprise",
-		GenerateTopologySpreadConstraints: m.SelectedRes["Topology Spread Constraints"] || qualityNames[m.SelectedQuality] == "enterprise",
+		GeneratePodAntiAffinity:           m.SelectedRes["Pod Anti Affinity"],
+		GenerateTopologySpreadConstraints: m.SelectedRes["Topology Spread Constraints"],
 	}
 
 	if m.SelectedAccessMode == 1 {

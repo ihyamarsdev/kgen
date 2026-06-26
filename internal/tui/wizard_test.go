@@ -223,8 +223,19 @@ func TestWizardModel_ModeEnterSimple(t *testing.T) {
 
 	mp.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
-	if mp.Step != StepQuality {
-		t.Errorf("expected StepQuality after simple mode enter, got %v", mp.Step)
+	// Simple mode sets quality=Basic and goes directly to config steps.
+	// Since Service is selected, the first config step is StepServiceType.
+	if mp.Step != StepServiceType {
+		t.Errorf("expected StepServiceType (first config step) after simple mode enter, got %v", mp.Step)
+	}
+	if mp.SelectedQuality != QualityBasic {
+		t.Errorf("expected QualityBasic for simple mode, got %v", mp.SelectedQuality)
+	}
+	if !mp.SelectedRes["Deployment"] {
+		t.Error("Deployment should be selected for simple mode")
+	}
+	if !mp.SelectedRes["Service"] {
+		t.Error("Service should be selected for simple mode")
 	}
 }
 
@@ -239,6 +250,52 @@ func TestWizardModel_ModeEnterCustom(t *testing.T) {
 
 	if mp.Step != StepCustomResources {
 		t.Errorf("expected StepCustomResources after custom mode enter, got %v", mp.Step)
+	}
+}
+
+func TestWizardModel_ModeEnterAdvanced(t *testing.T) {
+	mp := initialModelPtr("dev", "")
+	mp.Step = StepMode
+	mp.CurrentStepIndex = 1
+	mp.ActiveSteps = []Step{StepAppInfo, StepMode}
+	mp.SelectedMode = ModeAdvanced
+
+	mp.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Advanced mode sets quality=Production and goes directly to config steps.
+	// buildActiveSteps checks Ingress before Service, so StepIngressTls is first.
+	if mp.Step != StepIngressTls {
+		t.Errorf("expected StepIngressTls (first config step) after advanced mode enter, got %v", mp.Step)
+	}
+	if mp.SelectedQuality != QualityProduction {
+		t.Errorf("expected QualityProduction for advanced mode, got %v", mp.SelectedQuality)
+	}
+	if !mp.SelectedRes["Deployment"] {
+		t.Error("Deployment should be selected for advanced mode")
+	}
+	if !mp.SelectedRes["Service"] {
+		t.Error("Service should be selected for advanced mode")
+	}
+	if !mp.SelectedRes["Ingress"] {
+		t.Error("Ingress should be selected for advanced mode")
+	}
+	if !mp.SelectedRes["HPA"] {
+		t.Error("HPA should be selected for advanced mode")
+	}
+	if !mp.SelectedRes["PDB"] {
+		t.Error("PDB should be selected for advanced mode")
+	}
+	if !mp.SelectedRes["ServiceMonitor"] {
+		t.Error("ServiceMonitor should be selected for advanced mode")
+	}
+	if !mp.SelectedRes["NetworkPolicy"] {
+		t.Error("NetworkPolicy should be selected for advanced mode")
+	}
+	if !mp.SelectedRes["Pod Anti Affinity"] {
+		t.Error("Pod Anti Affinity should be selected for advanced mode")
+	}
+	if !mp.SelectedRes["Topology Spread Constraints"] {
+		t.Error("Topology Spread Constraints should be selected for advanced mode")
 	}
 }
 
@@ -657,17 +714,35 @@ func TestWizardModel_GetConfig_GenerateFlux(t *testing.T) {
 	}
 }
 
-func TestWizardModel_GetConfig_EnterpriseAutoGenerates(t *testing.T) {
+func TestWizardModel_GetConfig_EnterpriseNoLongerAutoEnables(t *testing.T) {
 	m := InitialModel("dev", "")
 	m.SelectedQuality = QualityEnterprise
 
 	cfg, _ := m.GetConfig()
 
+	// Enterprise quality no longer auto-enables these — they must be
+	// selected as resources (e.g. in Advanced mode preset or Custom mode).
+	if cfg.GeneratePodAntiAffinity {
+		t.Error("GeneratePodAntiAffinity should be false without selecting 'Pod Anti Affinity' resource")
+	}
+	if cfg.GenerateTopologySpreadConstraints {
+		t.Error("GenerateTopologySpreadConstraints should be false without selecting 'Topology Spread Constraints' resource")
+	}
+}
+
+func TestWizardModel_GetConfig_ResourceSelections(t *testing.T) {
+	m := InitialModel("dev", "")
+	// Simulate user selecting these resources in Custom mode
+	m.SelectedRes["Pod Anti Affinity"] = true
+	m.SelectedRes["Topology Spread Constraints"] = true
+
+	cfg, _ := m.GetConfig()
+
 	if !cfg.GeneratePodAntiAffinity {
-		t.Error("GeneratePodAntiAffinity should be true for enterprise")
+		t.Error("GeneratePodAntiAffinity should be true when 'Pod Anti Affinity' resource is selected")
 	}
 	if !cfg.GenerateTopologySpreadConstraints {
-		t.Error("GenerateTopologySpreadConstraints should be true for enterprise")
+		t.Error("GenerateTopologySpreadConstraints should be true when 'Topology Spread Constraints' resource is selected")
 	}
 }
 

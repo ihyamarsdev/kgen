@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.6.0] - 2026-06-27
+
+### Changed
+- **Merged Mode & Quality into single step**: Simple mode → Basic quality (inline), Advanced → Production (inline), Custom → select resources then quality. Removed standalone quality selection step for Simple/Advanced.
+- **Moved PodAntiAffinity & TopologySpreadConstraints from Quality Enterprise to resource selection**: These are now regular resources selected in Advanced mode preset or Custom mode, not auto-enabled by quality level.
+- **Score recommendations updated**: Messages now reference "Advanced deployment mode" instead of "Enterprise template quality".
+
+### Removed
+- **Quality Enterprise auto-enable**: Quality no longer auto-enables PodAntiAffinity or TopologySpreadConstraints.
+
 ## [v0.5.0] - 2026-06-26
 
 ### Added
@@ -234,7 +244,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/ihyamarsdev/kgen/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/ihyamarsdev/kgen/compare/v0.4.6...v0.5.0
 [v0.4.6]: https://github.com/ihyamarsdev/kgen/compare/v0.4.5...v0.4.6
 [v0.4.5]: https://github.com/ihyamarsdev/kgen/compare/v0.4.4...v0.4.5

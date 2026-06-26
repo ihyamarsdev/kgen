@@ -212,8 +212,8 @@ var createCmd = &cobra.Command{
 			addCheck("HPA", cfg.GenerateHPA, 10, "Enable HPA in Custom mode or use 'Advanced' deployment mode")
 			addCheck("PDB", cfg.GeneratePDB, 10, "Enable PDB in Custom mode or use 'Advanced' deployment mode")
 			addCheck("NetworkPolicy", cfg.GenerateNetworkPolicy, 10, "Enable NetworkPolicy in Custom mode or use 'Advanced' deployment mode")
-			addCheck("Topology Spread Constraints", cfg.GenerateTopologySpreadConstraints || isProdOrEnt, 5, "Use 'Enterprise' template quality or enable in Custom mode")
-			addCheck("Pod Anti Affinity", cfg.GeneratePodAntiAffinity || isProdOrEnt, 5, "Use 'Enterprise' template quality or enable in Custom mode")
+			addCheck("Topology Spread Constraints", cfg.GenerateTopologySpreadConstraints || isProdOrEnt, 5, "Enable 'Topology Spread Constraints' in Custom mode or use 'Advanced' deployment mode")
+			addCheck("Pod Anti Affinity", cfg.GeneratePodAntiAffinity || isProdOrEnt, 5, "Enable 'Pod Anti Affinity' in Custom mode or use 'Advanced' deployment mode")
 
 			fmt.Println(tui.HeaderStyle.Render("Production Readiness Score"))
 
