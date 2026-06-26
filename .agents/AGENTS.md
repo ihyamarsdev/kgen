@@ -50,8 +50,9 @@ kgen/
 │   │   └── validator.go  # Table-driven best practices validator
 │   └── version/
 │       └── version.go    # Version string (overridable via -ldflags)
-├── .github/workflows/ci.yml  # GitHub Actions: test, vet, lint, cross-compile
-├── .golangci.yml             # golangci-lint configuration
+├── .github/workflows/ci.yml      # GitHub Actions: test, vet, lint
+├── .github/workflows/release.yml # GitHub Actions: auto-build binaries on release
+├── .golangci.yml                 # golangci-lint configuration (v2)
 ├── CHANGELOG.md              # Keep a Changelog format
 ├── install.sh                # Auto-installer with checksum verification
 ├── main.go                   # Entrypoint
@@ -108,6 +109,19 @@ kgen/
   ```bash
   go build -ldflags "-X github.com/ihyamarsdev/kgen/internal/version.Version=vX.Y.Z" -o kgen main.go
   ```
+
+### 9. Release & Distribution
+
+- Releases are **fully automated** via `.github/workflows/release.yml`.
+- Triggered on `release: [published]` — just create a GitHub release with tag `vX.Y.Z`.
+- Builds binaries for 3 platforms and uploads them + SHA256 checksums as release assets:
+  - `kgen-linux-amd64` + `.sha256`
+  - `kgen-darwin-amd64` + `.sha256`
+  - `kgen-darwin-arm64` + `.sha256`
+- Uses `setup-go@v5` with Go module caching.
+- Uses `gh release upload --clobber` to attach assets.
+- `linux/arm64` is excluded from the build matrix (no install.sh support yet).
+- Installer script `install.sh` auto-detects OS/arch, downloads the correct binary, and verifies the SHA256 checksum.
 
 ### 6. Interactive File Selection & Editing
 

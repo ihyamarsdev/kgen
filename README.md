@@ -213,11 +213,37 @@ If `chart-directory` is omitted, KGen will auto-select from `~/kgen/`.
 
 ---
 
+## Release Process
+
+KGen uses **automated GitHub Actions** for releases. When a new release is published on GitHub:
+
+1. **Trigger**: Publishing a release with tag `vX.Y.Z` triggers the [release workflow](.github/workflows/release.yml).
+2. **Build**: Binaries are built for 3 platforms automatically:
+   - `kgen-linux-amd64`
+   - `kgen-darwin-amd64`
+   - `kgen-darwin-arm64`
+3. **Checksums**: SHA256 checksums are generated for each binary.
+4. **Upload**: All binaries + checksums are uploaded to the release assets.
+
+To create a new release:
+1. Update `internal/version/version.go` with the new version.
+2. Update `CHANGELOG.md` with release notes.
+3. Commit and push.
+4. Create a GitHub release with the matching tag (e.g., `v0.7.0`).
+5. The workflow runs automatically — binaries appear as release assets within minutes.
+
+Users install via:
+```bash
+curl -sSfL https://raw.githubusercontent.com/ihyamarsdev/kgen/main/install.sh | bash
+```
+The installer detects OS/arch, downloads the correct binary, and verifies its checksum.
+
+---
+
 ## Project Structure
 
 ```text
 kgen/
-├── cmd/
 │   ├── charts.go      # Shared chart listing, selection, and file scanning helpers
 │   ├── common.go      # Shared helpers (confirmation, error printing, helm utils)
 │   ├── deploy.go      # 'kgen deploy', 'kgen undeploy', 'kgen status' commands
