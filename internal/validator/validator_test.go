@@ -58,20 +58,24 @@ func TestValidateDir(t *testing.T) {
 	defer os.RemoveAll(tmpDirProd)
 
 	cfgProd := generator.Config{
-		AppName:            "prod-app",
-		Namespace:          "default",
-		ImageRepository:    "nginx",
-		ImageTag:           "latest",
-		Port:               80,
-		ReplicaCount:       3,
-		IngressEnabled:     true,
-		HPAEnabled:         true,
-		ProdProfile:        true,
-		TemplateQuality:    "production",
-		GenerateDeployment: true,
-		GenerateService:    true,
-		GenerateIngress:    true,
-		GenerateHPA:        true,
+		AppName:                      "prod-app",
+		Namespace:                    "default",
+		ImageRepository:              "nginx",
+		ImageTag:                     "latest",
+		Port:                         80,
+		ReplicaCount:                 3,
+		IngressEnabled:               true,
+		HPAEnabled:                   true,
+		ProdProfile:                  true,
+		TemplateQuality:              "production",
+		GenerateDeployment:           true,
+		GenerateService:              true,
+		GenerateIngress:              true,
+		GenerateHPA:                  true,
+		GeneratePDB:                  true,
+		GenerateNetworkPolicy:        true,
+		GenerateTopologySpreadConstraints: true,
+		GeneratePodAntiAffinity:      true,
 	}
 
 	err = generator.Generate(cfgProd, tmpDirProd)
@@ -98,6 +102,67 @@ func TestValidateDir_FallbackPath(t *testing.T) {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
+
+	// Create a templates directory to simulate a real chart structure
+	os.MkdirAll(tmpDir+"/templates", 0755)
+
+	// Write values.yaml with autoscaling, pdb, networkPolicy, etc.
+	values := `namespace: test
+replicaCount: 1
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  tag: latest
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+pdb:
+  enabled: true
+  minAvailable: 1
+networkPolicy:
+  enabled: true
+  preset: defaultdeny
+resources:
+  limits:
+    cpu: "1"
+    memory: "128Mi"
+  requests:
+    cpu: "100m"
+    memory: "64Mi"
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8080
+securityContext:
+  runAsNonRoot: true
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - test
+          topologyKey: kubernetes.io/hostname
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app: test
+`
+	if err := os.WriteFile(tmpDir+"/values.yaml", []byte(values), 0644); err != nil {
+		t.Fatalf("failed to write values.yaml: %v", err)
+	}
 
 	// Write a raw deployment YAML with probes and limits.
 	deployment := `apiVersion: apps/v1

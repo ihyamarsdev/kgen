@@ -350,6 +350,95 @@ func (m *WizardModel) regressStep() {
 	}
 }
 
+// dependencyHints returns a map of resource -> dependency hint message.
+var dependencyHints = map[string]string{
+	"Deployment":       "↳ Service will be auto-enabled (required for networking)",
+	"Service":          "↳ Required by Ingress, Gateway API, and ServiceMonitor",
+	"StatefulSet":      "↳ PersistentVolumeClaim will be auto-enabled (requires storage)",
+	"Ingress":          "↳ Service will be auto-enabled (Ingress routes to a Service)",
+	"Gateway API":      "↳ Service will be auto-enabled (Gateway routes to a Service)",
+	"ServiceMonitor":   "↳ Service will be auto-enabled (targets Service endpoints)",
+	"RoleBinding":      "↳ Role + ServiceAccount will be auto-enabled",
+	"ClusterRoleBinding": "↳ ClusterRole + ServiceAccount will be auto-enabled",
+	"CronJob":          "↳ ConfigMap will be auto-enabled (recommended for scripts)",
+	"Job":              "↳ ConfigMap will be auto-enabled (recommended for scripts)",
+	"HPA":              "↳ Requires resource requests/limits (consider Production quality)",
+	"VPA":              "⚠ Conflicts with HPA — don't use VPA and HPA together",
+}
+
+// applyDependencyRules enforces resource dependency rules when a user toggles a resource.
+func (m *WizardModel) applyDependencyRules(it string) {
+	switch it {
+	case "Deployment":
+		if !m.SelectedRes["Deployment"] && !m.SelectedRes["Service"] {
+			// Deselecting Deployment — nothing extra to do
+		} else if m.SelectedRes["Deployment"] && !m.SelectedRes["Service"] {
+			m.SelectedRes["Service"] = true
+		}
+
+	case "Service":
+		if !m.SelectedRes["Service"] {
+			m.SelectedRes["ServiceMonitor"] = false
+			m.SelectedRes["Ingress"] = false
+			m.SelectedRes["Gateway API"] = false
+		}
+
+	case "StatefulSet":
+		if m.SelectedRes["StatefulSet"] {
+			m.SelectedRes["PersistentVolumeClaim"] = true
+		} else {
+			m.SelectedRes["PersistentVolumeClaim"] = false
+		}
+
+	case "Ingress":
+		if m.SelectedRes["Ingress"] && !m.SelectedRes["Service"] {
+			m.SelectedRes["Service"] = true
+		}
+
+	case "Gateway API":
+		if m.SelectedRes["Gateway API"] && !m.SelectedRes["Service"] {
+			m.SelectedRes["Service"] = true
+		}
+
+	case "ServiceMonitor":
+		if m.SelectedRes["ServiceMonitor"] && !m.SelectedRes["Service"] {
+			m.SelectedRes["Service"] = true
+		}
+
+	case "RoleBinding":
+		if m.SelectedRes["RoleBinding"] {
+			m.SelectedRes["Role"] = true
+			m.SelectedRes["ServiceAccount"] = true
+		}
+
+	case "ClusterRoleBinding":
+		if m.SelectedRes["ClusterRoleBinding"] {
+			m.SelectedRes["ClusterRole"] = true
+			m.SelectedRes["ServiceAccount"] = true
+		}
+
+	case "CronJob":
+		if m.SelectedRes["CronJob"] && !m.SelectedRes["ConfigMap"] {
+			m.SelectedRes["ConfigMap"] = true
+		}
+
+	case "Job":
+		if m.SelectedRes["Job"] && !m.SelectedRes["ConfigMap"] {
+			m.SelectedRes["ConfigMap"] = true
+		}
+
+	case "VPA":
+		if m.SelectedRes["VPA"] && m.SelectedRes["HPA"] {
+			m.SelectedRes["HPA"] = false
+		}
+
+	case "HPA":
+		if m.SelectedRes["HPA"] && m.SelectedRes["VPA"] {
+			m.SelectedRes["VPA"] = false
+		}
+	}
+}
+
 // buildActiveSteps rebuilds the ActiveSteps slice based on which resources
 // are currently selected. It is called from both Custom mode (on continue)
 // and Simple/Advanced mode (after quality selection) so that intermediate
@@ -582,6 +671,13 @@ func (m *WizardModel) updateQuality(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Rebuild steps with conditional config steps based on selected resources.
 			// This ensures Simple/Advanced modes also show ServiceType, IngressTls, etc.
 			m.buildActiveSteps(StepAppInfo, StepMode, StepQuality)
+			// Ensure Service is enabled for Advanced mode deployment
+			if !m.SelectedRes["Service"] {
+				m.SelectedRes["Service"] = true
+			}
+			if !m.SelectedRes["Deployment"] {
+				m.SelectedRes["Deployment"] = true
+			}
 			m.advanceStep()
 		}
 	}
@@ -612,6 +708,10 @@ func (m *WizardModel) updateCustomResources(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// User clicked [ Continue to Confirm ].
 					// Build the dynamic steps based on what was selected!
 					m.buildActiveSteps(StepAppInfo, StepMode, StepCustomResources)
+					// Ensure Service is enabled if Ingress or Gateway is selected
+					if m.SelectedRes["Ingress"] || m.SelectedRes["Gateway API"] {
+						m.SelectedRes["Service"] = true
+					}
 					m.CurrentStepIndex = 2
 					m.advanceStep()
 				} else {
@@ -647,26 +747,7 @@ func (m *WizardModel) updateCustomResources(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.SelectedRes[it] = !m.SelectedRes[it]
 
 				// Smart Dependency Engine
-				if it == "ServiceMonitor" && m.SelectedRes["ServiceMonitor"] {
-					m.SelectedRes["Service"] = true
-				}
-				if it == "Service" && !m.SelectedRes["Service"] {
-					m.SelectedRes["ServiceMonitor"] = false
-				}
-				if it == "StatefulSet" && m.SelectedRes["StatefulSet"] {
-					m.SelectedRes["PersistentVolumeClaim"] = true
-				}
-				if it == "StatefulSet" && !m.SelectedRes["StatefulSet"] {
-					m.SelectedRes["PersistentVolumeClaim"] = false
-				}
-				if it == "RoleBinding" && m.SelectedRes["RoleBinding"] {
-					m.SelectedRes["Role"] = true
-					m.SelectedRes["ServiceAccount"] = true
-				}
-				if it == "ClusterRoleBinding" && m.SelectedRes["ClusterRoleBinding"] {
-					m.SelectedRes["ClusterRole"] = true
-					m.SelectedRes["ServiceAccount"] = true
-				}
+				m.applyDependencyRules(it)
 
 			case "enter":
 				m.TuiState = StateCategories
@@ -1111,10 +1192,14 @@ func (m *WizardModel) View() string {
 				if m.SelectedRes[it] {
 					checked = CheckboxChecked.Render("✓")
 				} else {
-					checked = CheckboxUnchecked.Render(" ")
-				}
-
+					checked = CheckboxUnchecked.Render(" ")				}
 				sb.WriteString(fmt.Sprintf("%s[%s] %s\n", cursor, checked, itStyle.Render(it)))
+			}
+
+			// Show dependency hint for the currently focused item
+			focusedItem := items[m.SubResCursor]
+			if hint, ok := dependencyHints[focusedItem]; ok {
+				sb.WriteString("\n  " + GrayStyle.Render(hint) + "\n")
 			}
 			sb.WriteString(HelpStyle.Render("Use up/down to navigate. Space to toggle. Enter/Esc to return to Categories."))
 		}

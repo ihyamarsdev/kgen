@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.0] - 2026-06-26
+
+### Added
+- **Enhanced Smart Dependency Engine**: 8 new dependency rules (Deployment→Service, Ingress→Service, Gateway→Service, CronJob→ConfigMap, Job→ConfigMap, VPA↔HPA mutual exclusion)
+- **Dependency hints display**: Shows contextual hints when browsing resources in Custom mode
+- **Expanded Validator**: 5 new best-practice checks (HPA, PDB, NetworkPolicy, Topology Spread Constraints, Pod Anti Affinity)
+- **Enhanced Score Display**: Color-coded progress bar with actionable recommendations for improvement
+
 ## [v0.4.6] - 2026-06-24
 
 ### Added
@@ -226,7 +234,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Best practices validator (`kgen validate`)
 - Resource explainer (`kgen explain`)
 
-[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/ihyamarsdev/kgen/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/ihyamarsdev/kgen/compare/v0.4.6...v0.5.0
 [v0.4.6]: https://github.com/ihyamarsdev/kgen/compare/v0.4.5...v0.4.6
 [v0.4.5]: https://github.com/ihyamarsdev/kgen/compare/v0.4.4...v0.4.5
 [v0.4.4]: https://github.com/ihyamarsdev/kgen/compare/v0.4.3...v0.4.4

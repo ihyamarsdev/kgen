@@ -17,11 +17,16 @@ type ValidationResult struct {
 }
 
 type Checks struct {
-	HasLivenessProbe  bool
-	HasReadinessProbe bool
-	HasLimits         bool
-	HasRequests       bool
-	HasSecurityCtx    bool
+	HasLivenessProbe            bool
+	HasReadinessProbe           bool
+	HasLimits                   bool
+	HasRequests                 bool
+	HasSecurityCtx              bool
+	HasHPA                      bool
+	HasPDB                      bool
+	HasNetworkPolicy            bool
+	HasTopologySpreadConstraints bool
+	HasPodAntiAffinity          bool
 }
 
 func ValidateDir(dirPath string) ([]ValidationResult, error) {
@@ -34,6 +39,26 @@ func ValidateDir(dirPath string) ([]ValidationResult, error) {
 	}
 
 	checks := Checks{}
+
+	// Scan templates directory for YAML files indicating resource presence
+	templatesDir := filepath.Join(dirPath, "templates")
+	if _, err := os.Stat(templatesDir); err == nil {
+		filepath.WalkDir(templatesDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			name := strings.ToLower(filepath.Base(path))
+			switch name {
+			case "hpa.yaml", "hpa.yml":
+				checks.HasHPA = true
+			case "pdb.yaml", "pdb.yml":
+				checks.HasPDB = true
+			case "networkpolicy.yaml", "networkpolicy.yml":
+				checks.HasNetworkPolicy = true
+			}
+			return nil
+		})
+	}
 
 	valuesPath := filepath.Join(dirPath, "values.yaml")
 	if _, err := os.Stat(valuesPath); err == nil {
@@ -64,6 +89,48 @@ func ValidateDir(dirPath string) ([]ValidationResult, error) {
 			}
 			if hasKeyPath(valMap, "resources", "requests") {
 				checks.HasRequests = true
+			}
+			if hasKeyPath(valMap, "autoscaling", "enabled") {
+				if enabled, ok := valMap["autoscaling"].(map[string]any)["enabled"]; ok {
+					if boolVal, ok := enabled.(bool); ok && boolVal {
+						checks.HasHPA = true
+					}
+				}
+			}
+			if hasKeyPath(valMap, "pdb", "enabled") {
+				if enabled, ok := valMap["pdb"].(map[string]any)["enabled"]; ok {
+					if boolVal, ok := enabled.(bool); ok && boolVal {
+						checks.HasPDB = true
+					}
+				}
+			}
+			if hasKeyPath(valMap, "networkPolicy", "enabled") {
+				if enabled, ok := valMap["networkPolicy"].(map[string]any)["enabled"]; ok {
+					if boolVal, ok := enabled.(bool); ok && boolVal {
+						checks.HasNetworkPolicy = true
+					}
+				}
+			}
+			if hasKeyPath(valMap, "topologySpreadConstraints") {
+				if constraints, ok := valMap["topologySpreadConstraints"]; ok && constraints != nil {
+					switch v := constraints.(type) {
+					case []any:
+						if len(v) > 0 {
+							checks.HasTopologySpreadConstraints = true
+						}
+					case []map[string]any:
+						if len(v) > 0 {
+							checks.HasTopologySpreadConstraints = true
+						}
+					}
+				}
+			}
+			if hasKeyPath(valMap, "affinity", "podAntiAffinity") {
+				if affinity, ok := valMap["affinity"].(map[string]any); ok {
+					if paa, ok := affinity["podAntiAffinity"]; ok && paa != nil {
+						checks.HasPodAntiAffinity = true
+					}
+				}
 			}
 		}
 	} else {
@@ -101,6 +168,32 @@ func ValidateDir(dirPath string) ([]ValidationResult, error) {
 			if strings.Contains(strContent, "requests:") {
 				checks.HasRequests = true
 			}
+			if strings.Contains(strContent, "autoscaling:") {
+				checks.HasHPA = true
+			}
+			if strings.Contains(strContent, "pdb:") || strings.Contains(strContent, "kind: PodDisruptionBudget") {
+				checks.HasPDB = true
+			}
+			if strings.Contains(strContent, "networkPolicy:") || strings.Contains(strContent, "kind: NetworkPolicy") {
+				checks.HasNetworkPolicy = true
+			}
+			if strings.Contains(strContent, "topologySpreadConstraints:") {
+				checks.HasTopologySpreadConstraints = true
+			}
+			if strings.Contains(strContent, "podAntiAffinity:") || strings.Contains(strContent, "PodAntiAffinity") {
+				checks.HasPodAntiAffinity = true
+			}
+
+			// Also check for template file names
+			if strings.Contains(strContent, "kind: HorizontalPodAutoscaler") {
+				checks.HasHPA = true
+			}
+			if strings.Contains(strContent, "kind: PodDisruptionBudget") {
+				checks.HasPDB = true
+			}
+			if strings.Contains(strContent, "kind: NetworkPolicy") {
+				checks.HasNetworkPolicy = true
+			}
 
 			return nil
 		})
@@ -123,6 +216,11 @@ func ValidateDir(dirPath string) ([]ValidationResult, error) {
 		{"Liveness Probe", checks.HasLivenessProbe, "Liveness probe found", "No liveness probe found"},
 		{"Readiness Probe", checks.HasReadinessProbe, "Readiness probe found", "No readiness probe found"},
 		{"Security Context", checks.HasSecurityCtx, "Security context configured", "No security context configured"},
+		{"HPA (Horizontal Pod Autoscaler)", checks.HasHPA, "HPA configured", "No HPA configured"},
+		{"PDB (Pod Disruption Budget)", checks.HasPDB, "PDB configured", "No PDB configured"},
+		{"NetworkPolicy", checks.HasNetworkPolicy, "NetworkPolicy configured", "No NetworkPolicy configured"},
+		{"Topology Spread Constraints", checks.HasTopologySpreadConstraints, "Topology spread constraints configured", "No topology spread constraints configured"},
+		{"Pod Anti Affinity", checks.HasPodAntiAffinity, "Pod anti affinity configured", "No pod anti affinity configured"},
 	}
 
 	results := make([]ValidationResult, 0, len(defs))

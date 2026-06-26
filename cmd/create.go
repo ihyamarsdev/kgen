@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/ihyamarsdev/kgen/internal/generator"
 	"github.com/ihyamarsdev/kgen/internal/tui"
@@ -188,34 +189,58 @@ var createCmd = &cobra.Command{
 		// Calculate Production Readiness Score
 		if cfg.GenerateDeployment || cfg.GenerateStatefulSet || cfg.GenerateDaemonSet {
 			score := 0
+			maxScore := 100
 			var scoreDetails []string
+			var recommendations []string
 
-			addCheck := func(name string, passed bool, points int) {
+			addCheck := func(name string, passed bool, points int, recommendation string) {
 				if passed {
 					score += points
 					scoreDetails = append(scoreDetails, fmt.Sprintf("  %s %s", tui.SuccessStyle.Render("✓"), name))
-				} else {
+				} else if recommendation != "" {
 					scoreDetails = append(scoreDetails, fmt.Sprintf("  %s %s", tui.ErrorStyle.Render("✗"), name))
+					recommendations = append(recommendations, fmt.Sprintf("  • %s", recommendation))
 				}
 			}
 
 			isProdOrEnt := cfg.TemplateQuality == "production" || cfg.TemplateQuality == "enterprise"
 
-			addCheck("Resource Requests", isProdOrEnt, 15)
-			addCheck("Resource Limits", isProdOrEnt, 15)
-			addCheck("Readiness Probe", isProdOrEnt, 15)
-			addCheck("Liveness Probe", isProdOrEnt, 15)
-			addCheck("HPA", cfg.GenerateHPA, 10)
-			addCheck("PDB", cfg.GeneratePDB, 10)
-			addCheck("NetworkPolicy", cfg.GenerateNetworkPolicy, 10)
-			addCheck("Topology Spread Constraints", cfg.GenerateTopologySpreadConstraints, 5)
-			addCheck("Pod Anti Affinity", cfg.GeneratePodAntiAffinity, 5)
+			addCheck("Resource Requests", isProdOrEnt, 15, "Use 'Production' or 'Enterprise' template quality to add CPU/memory requests")
+			addCheck("Resource Limits", isProdOrEnt, 15, "Use 'Production' or 'Enterprise' template quality to add CPU/memory limits")
+			addCheck("Readiness Probe", isProdOrEnt, 15, "Use 'Production' or 'Enterprise' template quality to add readiness probe")
+			addCheck("Liveness Probe", isProdOrEnt, 15, "Use 'Production' or 'Enterprise' template quality to add liveness probe")
+			addCheck("HPA", cfg.GenerateHPA, 10, "Enable HPA in Custom mode or use 'Advanced' deployment mode")
+			addCheck("PDB", cfg.GeneratePDB, 10, "Enable PDB in Custom mode or use 'Advanced' deployment mode")
+			addCheck("NetworkPolicy", cfg.GenerateNetworkPolicy, 10, "Enable NetworkPolicy in Custom mode or use 'Advanced' deployment mode")
+			addCheck("Topology Spread Constraints", cfg.GenerateTopologySpreadConstraints || isProdOrEnt, 5, "Use 'Enterprise' template quality or enable in Custom mode")
+			addCheck("Pod Anti Affinity", cfg.GeneratePodAntiAffinity || isProdOrEnt, 5, "Use 'Enterprise' template quality or enable in Custom mode")
 
 			fmt.Println(tui.HeaderStyle.Render("Production Readiness Score"))
-			fmt.Printf("  Score: %d/100\n\n", score)
+
+			// Color-coded score bar
+			barLen := 20
+			filled := (score * barLen) / maxScore
+			barColor := tui.ErrorStyle
+			if score >= 80 {
+				barColor = tui.SuccessStyle
+			} else if score >= 50 {
+				barColor = tui.HeaderStyle
+			}
+			bar := strings.Repeat("█", filled) + strings.Repeat("░", barLen-filled)
+			fmt.Printf("  %s %s %d/%d\n\n", barColor.Render(bar), barColor.Render(fmt.Sprintf("%d%%", score)), score, maxScore)
+
 			for _, detail := range scoreDetails {
 				fmt.Println(detail)
 			}
+
+			// Show recommendations if score is not perfect
+			if len(recommendations) > 0 {
+				fmt.Println("\n" + tui.ActiveInputStyle.Render("Recommendations to improve your score:"))
+				for _, rec := range recommendations {
+					fmt.Println(rec)
+				}
+			}
+
 			fmt.Println()
 		}
 
