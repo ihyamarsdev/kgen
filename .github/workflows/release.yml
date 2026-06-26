@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build & Upload Binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: linux
+            goarch: arm64
+      max-parallel: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          BINARY_NAME="kgen-${{ matrix.goos }}-${{ matrix.goarch }}"
+          go build -ldflags "-X github.com/ihyamarsdev/kgen/internal/version.Version=${VERSION}" \
+            -o "dist/${BINARY_NAME}" main.go
+
+      - name: Generate SHA256 checksum
+        run: |
+          BINARY_NAME="kgen-${{ matrix.goos }}-${{ matrix.goarch }}"
+          sha256sum "dist/${BINARY_NAME}" > "dist/${BINARY_NAME}.sha256"
+
+      - name: Upload binary to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BINARY_NAME="kgen-${{ matrix.goos }}-${{ matrix.goarch }}"
+          gh release upload "${GITHUB_REF_NAME}" \
+            "dist/${BINARY_NAME}" \
+            "dist/${BINARY_NAME}.sha256" \
+            --clobber
